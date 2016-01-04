@@ -52,6 +52,29 @@ char *gozend_call_user_function_string(char *func_name, char *str)
     return res;
 }
 
+void gozend_efree(void *ptr) {
+    efree(ptr);
+}
+
+char *gozend_estrdup(char *str) {
+    return estrdup(str);
+}
+
+char *gozend_estrndup(char *str, unsigned int length) {
+    return estrndup(str, length);
+}
+
+void *gozend_emalloc(size_t size) {
+    return emalloc(size);
+}
+
+void *gozend_ecalloc(size_t nmemb, size_t size) {
+    return ecalloc(nmemb, size);
+}
+
+void *gozend_erealloc(void *ptr, size_t size) {
+    return erealloc(ptr, size);
+}
 
 void call_user_function_callback(char *data)
 {

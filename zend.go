@@ -9,14 +9,15 @@ import (
 
 /*
 #include <stdlib.h>
-#cgo CFLAGS: -I/usr/include/php -I/usr/include/php/Zend -I/usr/include/php/TSRM
+// #cgo CFLAGS: -I/usr/include/php -I/usr/include/php/Zend -I/usr/include/php/TSRM
+// #cgo LDFLAGS: -L/home/dev/php5/lib -lphp5
 #cgo LDFLAGS: -lphp5
 
-extern char* gozend_call_user_function_string(char *func_name, char *arg);
-extern void call_user_function_callback(char *arg);
+#include "szend.h"
 */
 import "C"
 import "unsafe"
+import "fmt"
 
 ////export call_user_function_string
 func Call_user_function_string(func_name string, arg string) (string, error) {
@@ -30,7 +31,9 @@ func Call_user_function_string(func_name string, arg string) (string, error) {
 		return "", errors.New("call error")
 	}
 
-	defer C.free(unsafe.Pointer(ret))
+	fmt.Printf("retp: %p\n", ret)
+	fmt.Println("ret:", C.GoString(ret))
+	defer C.gozend_efree(unsafe.Pointer(ret))
 	return C.GoString(ret), nil
 }
 
