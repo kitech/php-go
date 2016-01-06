@@ -76,6 +76,18 @@ void *gozend_erealloc(void *ptr, size_t size) {
     return erealloc(ptr, size);
 }
 
+char gozend_eval_string(char *code)
+{
+    zval retval;
+    INIT_ZVAL(retval);
+
+    int ret = zend_eval_string(code, &retval, (char*)"" TSRMLS_CC);
+
+    // zval_ptr_dtor(&retval);
+    zval_dtor(&retval);
+    return ret == FAILURE;
+}
+
 void call_user_function_callback(char *data)
 {
     zval *args[9];

@@ -44,3 +44,11 @@ func Call_user_function(func_name string, args ...interface{}) {
 
 	// TODO args to zval**
 }
+
+func Eval_string(code string) bool {
+	ccode := C.CString(code)
+	defer C.free(unsafe.Pointer(ccode))
+
+	ret := C.gozend_eval_string(ccode)
+	return ret == 1
+}
