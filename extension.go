@@ -11,6 +11,9 @@ package zend
 
 */
 import "C"
+import "unsafe"
+import "errors"
+import "fmt"
 
 var (
 	ExtName string = ""
@@ -27,21 +30,63 @@ func InitExtension(name string, version ...string) {
 var gext = NewExtension()
 
 type Extension struct {
-	fns map[string]interface{}
-	me  *C.zend_module_entry
-	fe  *C.zend_function_entry
+	fnames  map[string]interface{}
+	fnos    map[int]interface{}
+	classes map[string]int
+	ctors   map[string]interface{}
+
+	me *C.zend_module_entry
+	fe *C.zend_function_entry
 }
 
 func NewExtension() *Extension {
-	fns := make(map[string]interface{}, 0)
+	fnames := make(map[string]interface{}, 0)
+	fnos := make(map[int]interface{}, 0)
 
-	return &Extension{fns: fns}
+	return &Extension{fnames: fnames, fnos: fnos}
 }
 
-func AddFunc(name string, f interface{}) {
-	if _, has := gext.fns[name]; !has {
+func AddFunc(name string, f interface{}) error {
+	if _, has := gext.fnames[name]; !has {
 		// TODO check f type
-		gext.fns[name] = f
-		C.zend_add_function(C.CString(name))
+
+		cname := C.CString(name)
+		n := C.zend_add_function(cname)
+		C.free(unsafe.Pointer(cname))
+
+		if int(n) >= 0 {
+			gext.fnos[int(n)] = f
+			gext.fnames[name] = f
+			return nil
+		}
 	}
+
+	return errors.New("add func error.")
+}
+
+// 添加新类的时候，可以把类的公共方法全部导出吧
+// 不用逐个方法添加，简单多了。
+func AddClass(name string, ctor interface{}) error {
+
+	if _, has := gext.classes[name]; !has {
+
+		cname := C.CString(name)
+		n := C.zend_add_class(cname)
+		C.free(unsafe.Pointer(cname))
+
+		if int(n) >= 0 {
+			gext.classes[name] = int(n)
+			gext.ctors[name] = ctor
+			return nil
+		}
+	}
+
+	return errors.New("add class error.")
+}
+
+//export on_phpgo_function_callback
+func on_phpgo_function_callback(no int) {
+	fmt.Println("go callback called:", no, gext.fnos[no])
+	f := gext.fnos[no]
+	f.(func())()
 }
