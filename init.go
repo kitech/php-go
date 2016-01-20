@@ -6,6 +6,7 @@ package zend
 import "C"
 import "unsafe"
 import "runtime"
+import "os"
 import "fmt"
 
 //export get_module
@@ -21,5 +22,8 @@ func get_module() unsafe.Pointer {
 }
 
 func init() {
-	runtime.GOMAXPROCS(1)
+	omp := runtime.GOMAXPROCS(1)
+	fmt.Println("run gozend init...", omp)
+	omp = runtime.GOMAXPROCS(1)
+	fmt.Println("run gozend init...", omp)
 }

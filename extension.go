@@ -12,6 +12,7 @@ package zend
 */
 import "C"
 import "unsafe"
+import "reflect"
 import "errors"
 import "fmt"
 
@@ -42,8 +43,10 @@ type Extension struct {
 func NewExtension() *Extension {
 	fnames := make(map[string]interface{}, 0)
 	fnos := make(map[int]interface{}, 0)
+	classes := make(map[string]int, 0)
+	ctors := make(map[string]interface{}, 0)
 
-	return &Extension{fnames: fnames, fnos: fnos}
+	return &Extension{fnames: fnames, fnos: fnos, classes: classes, ctors: ctors}
 }
 
 func AddFunc(name string, f interface{}) error {
@@ -77,11 +80,47 @@ func AddClass(name string, ctor interface{}) error {
 		if int(n) >= 0 {
 			gext.classes[name] = int(n)
 			gext.ctors[name] = ctor
+
+			addMethods(name, ctor)
 			return nil
 		}
 	}
 
 	return errors.New("add class error.")
+}
+
+func addCtor(cname string, ctor interface{}) {
+	mname := "__construct"
+	addMethod(cname, mname)
+}
+
+func addMethods(cname string, ctor interface{}) {
+	fty := reflect.TypeOf(ctor)
+	cls := fty.Out(0)
+
+	for i := 0; i < cls.NumMethod(); i++ {
+		fmt.Println(i, cname, cls.Method(i).Name)
+		addMethod(cname, cls.Method(i).Name)
+	}
+}
+
+func addMethod(cname string, mname string) {
+	ccname := C.CString(cname)
+	cmname := C.CString(mname)
+
+	mn := C.zend_add_method(ccname, cmname)
+	C.free(unsafe.Pointer(ccname))
+	C.free(unsafe.Pointer(cmname))
+
+	if mn >= 0 {
+
+	}
+}
+
+// 内置函数注册，内置类注册。
+func addBuiltins() {
+	// nice fix exit crash bug.
+	// AddFunc("GoExit", func() { os.Exit(0) })
 }
 
 //export on_phpgo_function_callback

@@ -114,6 +114,7 @@ int zend_add_function(char *name)
         }
     }
 
+    // nospace
     return -1;
 }
 
@@ -128,6 +129,7 @@ void phpgo_method_handler(int ht, zval *return_value, zval **return_value_ptr,
 
 int zend_add_class(char *cname)
 {
+    cname = strdup(cname);
     int npos = -1;
     for (int i = 0; i < MFN; i++) {
         if (g_centries[i].name == NULL) {
@@ -137,17 +139,18 @@ int zend_add_class(char *cname)
     }
 
     if (npos == -1) {
+        // nospace
         return npos;
     }
-
+    printf("clsno: %d\n", npos);
     zend_class_entry *ce = &g_centries[npos];
-    INIT_CLASS_ENTRY((*ce), cname, g_cmths[npos]);
+    INIT_CLASS_ENTRY_EX((*ce), cname, strlen(cname), g_cmths[npos]);
     zend_register_internal_class(ce TSRMLS_CC);
 
     return npos;
 }
 
-void zend_add_method(char *cname, char *mname)
+int zend_add_method(char *cname, char *mname)
 {
     int cpos = -1;
     for (int i = 0; i < MFN; i ++) {
@@ -157,7 +160,7 @@ void zend_add_method(char *cname, char *mname)
         }
     }
     if (cpos == -1) {
-        return;
+        return -1;
     }
 
     for (int i = 0; i < MFN; i ++) {
@@ -167,13 +170,16 @@ void zend_add_method(char *cname, char *mname)
             zend_function_entry e = {mname, phpgo_method_handler, NULL, 0,
                                      0 | ZEND_ACC_PUBLIC};
             memcpy(fe, &e, sizeof(e));
-            break;
+            return i;
         } else {
             if (strcmp(mname, fe->fname) == 0) {
                 // dup method, override the old one
-                break;
+                return i;
             }
         }
     }
+
+    // nospace
+    return -1;
 }
 
