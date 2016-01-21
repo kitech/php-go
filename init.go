@@ -6,7 +6,8 @@ package zend
 import "C"
 import "unsafe"
 import "runtime"
-import "os"
+
+// import "os"
 import "fmt"
 
 //export get_module

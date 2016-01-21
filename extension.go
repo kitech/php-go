@@ -30,36 +30,74 @@ func InitExtension(name string, version ...string) {
 
 var gext = NewExtension()
 
+type FuncEntry struct {
+	class  string
+	method string
+	fn     interface{}
+}
+
+func NewFuncEntry(class string, method string, fn interface{}) *FuncEntry {
+	return &FuncEntry{class, method, fn}
+}
+
+func (this *FuncEntry) Name() string {
+	return this.class + "_" + this.method
+}
+
+func (this *FuncEntry) IsGlobal() bool {
+	return this.class == "global"
+}
+
 type Extension struct {
-	fnames  map[string]interface{}
-	fnos    map[int]interface{}
+	syms    map[string]int
 	classes map[string]int
-	ctors   map[string]interface{}
+	cbs     map[int]*FuncEntry // cbid => callable callbak
+
+	fidx int // = 0
 
 	me *C.zend_module_entry
 	fe *C.zend_function_entry
 }
 
+// TODO 把entry位置与cbid分开，这样cbfunc就能够更紧凑了
 func NewExtension() *Extension {
-	fnames := make(map[string]interface{}, 0)
-	fnos := make(map[int]interface{}, 0)
+	syms := make(map[string]int, 0)
 	classes := make(map[string]int, 0)
-	ctors := make(map[string]interface{}, 0)
+	cbs := make(map[int]*FuncEntry, 0)
 
-	return &Extension{fnames: fnames, fnos: fnos, classes: classes, ctors: ctors}
+	classes["global"] = 0 // 可以看作内置函数的类
+	return &Extension{syms: syms, classes: classes, cbs: cbs}
+}
+
+// depcreated
+func gencbid(cidx int, fidx int) int {
+	return cidx*128 + fidx
+}
+
+func nxtcbid() int {
+	return len(gext.syms)
 }
 
 func AddFunc(name string, f interface{}) error {
-	if _, has := gext.fnames[name]; !has {
+	fe := NewFuncEntry("global", name, f)
+	sname := fe.Name()
+
+	if _, has := gext.syms[sname]; !has {
 		// TODO check f type
 
+		cidx := 0
+		fidx := gext.fidx
+		// cbid := gencbid(0, fidx)
+		cbid := nxtcbid()
+
 		cname := C.CString(name)
-		n := C.zend_add_function(cname)
+		n := C.zend_add_function(C.int(cidx), C.int(fidx), C.int(cbid), cname)
 		C.free(unsafe.Pointer(cname))
 
-		if int(n) >= 0 {
-			gext.fnos[int(n)] = f
-			gext.fnames[name] = f
+		if int(n) == 0 {
+			gext.syms[sname] = cbid
+			gext.cbs[cbid] = fe
+			gext.fidx += 1
 			return nil
 		}
 	}
@@ -72,15 +110,16 @@ func AddFunc(name string, f interface{}) error {
 func AddClass(name string, ctor interface{}) error {
 
 	if _, has := gext.classes[name]; !has {
+		cidx := len(gext.classes)
 
 		cname := C.CString(name)
-		n := C.zend_add_class(cname)
+		n := C.zend_add_class(C.int(cidx), cname)
 		C.free(unsafe.Pointer(cname))
 
-		if int(n) >= 0 {
-			gext.classes[name] = int(n)
-			gext.ctors[name] = ctor
+		if int(n) == 0 {
+			gext.classes[name] = cidx
 
+			addCtor(name, ctor)
 			addMethods(name, ctor)
 			return nil
 		}
@@ -91,7 +130,8 @@ func AddClass(name string, ctor interface{}) error {
 
 func addCtor(cname string, ctor interface{}) {
 	mname := "__construct"
-	addMethod(cname, mname)
+	fidx := 0
+	addMethod(fidx, cname, mname, ctor)
 }
 
 func addMethods(cname string, ctor interface{}) {
@@ -100,20 +140,27 @@ func addMethods(cname string, ctor interface{}) {
 
 	for i := 0; i < cls.NumMethod(); i++ {
 		fmt.Println(i, cname, cls.Method(i).Name)
-		addMethod(cname, cls.Method(i).Name)
+		addMethod(i+1, cname, cls.Method(i).Name, nil)
 	}
 }
 
-func addMethod(cname string, mname string) {
+func addMethod(fidx int, cname string, mname string, fn interface{}) {
+	cidx := gext.classes[cname]
+	// cbid := gencbid(cidx, fidx)
+	cbid := nxtcbid()
+
+	fe := NewFuncEntry(cname, mname, fn)
+
 	ccname := C.CString(cname)
 	cmname := C.CString(mname)
 
-	mn := C.zend_add_method(ccname, cmname)
+	mn := C.zend_add_method(C.int(cidx), C.int(fidx), C.int(cbid), ccname, cmname)
 	C.free(unsafe.Pointer(ccname))
 	C.free(unsafe.Pointer(cmname))
 
-	if mn >= 0 {
-
+	if mn == 0 {
+		gext.cbs[cbid] = fe
+		gext.syms[fe.Name()] = cbid
 	}
 }
 
@@ -125,7 +172,7 @@ func addBuiltins() {
 
 //export on_phpgo_function_callback
 func on_phpgo_function_callback(no int) {
-	fmt.Println("go callback called:", no, gext.fnos[no])
-	f := gext.fnos[no]
-	f.(func())()
+	fmt.Println("go callback called:", no, gext.cbs[no])
+	fe := gext.cbs[no]
+	fe.fn.(func())()
 }
