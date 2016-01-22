@@ -90,9 +90,19 @@ func AddFunc(name string, f interface{}) error {
 		// cbid := gencbid(0, fidx)
 		cbid := nxtcbid()
 
+		argtys := ArgsGo2Php(f)
+		var cargtys *C.char = nil
+		if argtys != nil {
+			cargtys = C.CString(*argtys)
+		}
+		rety := RetGo2Php(f)
+
 		cname := C.CString(name)
-		n := C.zend_add_function(C.int(cidx), C.int(fidx), C.int(cbid), cname)
+		n := C.zend_add_function(C.int(cidx), C.int(fidx), C.int(cbid), cname, cargtys, C.int(rety))
 		C.free(unsafe.Pointer(cname))
+		if argtys != nil {
+			C.free(unsafe.Pointer(cargtys))
+		}
 
 		if int(n) == 0 {
 			gext.syms[sname] = cbid
@@ -138,9 +148,9 @@ func addMethods(cname string, ctor interface{}) {
 	fty := reflect.TypeOf(ctor)
 	cls := fty.Out(0)
 
-	for i := 0; i < cls.NumMethod(); i++ {
-		fmt.Println(i, cname, cls.Method(i).Name)
-		addMethod(i+1, cname, cls.Method(i).Name, nil)
+	for idx := 0; idx < cls.NumMethod(); idx++ {
+		fmt.Println(idx, cname, cls.Method(idx).Name)
+		addMethod(idx+1, cname, cls.Method(idx).Name, cls.Method(idx))
 	}
 }
 
@@ -151,12 +161,22 @@ func addMethod(fidx int, cname string, mname string, fn interface{}) {
 
 	fe := NewFuncEntry(cname, mname, fn)
 
+	argtys := ArgsGo2Php(fn)
+	var cargtys *C.char = nil
+	if argtys != nil {
+		cargtys = C.CString(*argtys)
+	}
+	rety := RetGo2Php(fn)
+
 	ccname := C.CString(cname)
 	cmname := C.CString(mname)
 
-	mn := C.zend_add_method(C.int(cidx), C.int(fidx), C.int(cbid), ccname, cmname)
+	mn := C.zend_add_method(C.int(cidx), C.int(fidx), C.int(cbid), ccname, cmname, cargtys, C.int(rety))
 	C.free(unsafe.Pointer(ccname))
 	C.free(unsafe.Pointer(cmname))
+	if argtys != nil {
+		C.free(unsafe.Pointer(cargtys))
+	}
 
 	if mn == 0 {
 		gext.cbs[cbid] = fe
@@ -171,8 +191,13 @@ func addBuiltins() {
 }
 
 //export on_phpgo_function_callback
-func on_phpgo_function_callback(no int) {
+func on_phpgo_function_callback(no int, a0 uintptr, a1 uintptr) {
+	args := []uintptr{a0, a1}
+	if len(args) > 0 {
+	}
 	fmt.Println("go callback called:", no, gext.cbs[no])
+	fmt.Println("go callback called:", args, C.GoString((*C.char)(unsafe.Pointer(a1))))
+
 	fe := gext.cbs[no]
 	fe.fn.(func())()
 }
