@@ -2,6 +2,11 @@ package zend
 
 // go类型转换为PHP类型
 
+/*
+ */
+import "C"
+import "unsafe"
+
 import (
 	"fmt"
 	"reflect"
@@ -27,8 +32,8 @@ const (
 	PHPTY_IS_CONSTANT_IN_NAMESPACE = 0x100
 )
 
-func ArgsGo2Php(f interface{}) (ptfs *string) {
-	fty := reflect.TypeOf(f)
+func ArgTypes2Php(fn interface{}) (ptfs *string) {
+	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
 		return
 	}
@@ -73,8 +78,8 @@ func ArgsGo2Php(f interface{}) (ptfs *string) {
 	return &tfs
 }
 
-func RetGo2Php(f interface{}) (rety int) {
-	fty := reflect.TypeOf(f)
+func RetType2Php(fn interface{}) (rety int) {
+	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
 		return
 	}
@@ -109,6 +114,117 @@ func RetGo2Php(f interface{}) (rety int) {
 			fallthrough
 		case reflect.Uint8:
 			rety = PHPTY_IS_LONG
+		}
+	}
+
+	return
+}
+
+func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
+	fty := reflect.TypeOf(fn)
+	if fty.Kind() != reflect.Func {
+		return
+	}
+
+	argv = make([]reflect.Value, 0)
+	for idx := 0; idx < fty.NumIn(); idx++ {
+		switch fty.In(idx).Kind() {
+		case reflect.String:
+			var arg = C.GoString((*C.char)(unsafe.Pointer(args[idx])))
+			var v = reflect.ValueOf(arg).Convert(fty.In(idx))
+			argv = append(argv, v)
+		case reflect.Float64:
+			fallthrough
+		case reflect.Float32:
+			var arg = (*C.double)(unsafe.Pointer(args[idx]))
+			var v = reflect.ValueOf(*arg).Convert(fty.In(idx))
+			argv = append(argv, v)
+		case reflect.Bool:
+			var arg = (C.int)(args[idx])
+			if arg == 1 {
+				argv = append(argv, reflect.ValueOf(true))
+			} else {
+				argv = append(argv, reflect.ValueOf(false))
+			}
+		case reflect.Int64:
+			fallthrough
+		case reflect.Uint64:
+			fallthrough
+		case reflect.Int32:
+			fallthrough
+		case reflect.Uint32:
+			fallthrough
+		case reflect.Int:
+			fallthrough
+		case reflect.Uint:
+			fallthrough
+		case reflect.Int16:
+			fallthrough
+		case reflect.Uint16:
+			fallthrough
+		case reflect.Int8:
+			fallthrough
+		case reflect.Uint8:
+			var arg = (C.ulonglong)(args[idx])
+			var v = reflect.ValueOf(arg).Convert(fty.In(idx))
+			argv = append(argv, v)
+		}
+	}
+
+	if len(argv) != fty.NumIn() {
+		panic("wtf")
+	}
+	return
+}
+
+func RetValue2Php(fn interface{}, rvs []reflect.Value) (retv uintptr) {
+	fty := reflect.TypeOf(fn)
+	if fty.Kind() != reflect.Func {
+		return
+	}
+	retv = 0
+
+	if fty.NumOut() > 0 {
+		switch fty.Out(0).Kind() {
+		case reflect.String:
+			// 需要reciever 释放内存
+			retv = uintptr(unsafe.Pointer(C.CString(rvs[0].Interface().(string))))
+		case reflect.Float64:
+			fallthrough
+		case reflect.Float32:
+			// 需要reciever 释放内存
+			var pdv *C.double = (*C.double)(C.malloc(8))
+			*pdv = (C.double)(rvs[0].Interface().(float64))
+			retv = uintptr(unsafe.Pointer(pdv))
+		case reflect.Bool:
+			var bv = rvs[0].Interface().(bool)
+			if bv {
+				retv = uintptr(1)
+			} else {
+				retv = uintptr(0)
+			}
+		case reflect.Int64:
+			fallthrough
+		case reflect.Uint64:
+			fallthrough
+		case reflect.Int32:
+			fallthrough
+		case reflect.Uint32:
+			fallthrough
+		case reflect.Int:
+			fallthrough
+		case reflect.Uint:
+			fallthrough
+		case reflect.Int16:
+			fallthrough
+		case reflect.Uint16:
+			fallthrough
+		case reflect.Int8:
+			fallthrough
+		case reflect.Uint8:
+			var dty = reflect.TypeOf(uint64(0))
+			var nv = rvs[0].Convert(dty).Interface().(uint64)
+			retv = uintptr(nv)
 		}
 	}
 

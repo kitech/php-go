@@ -15,6 +15,7 @@ import "unsafe"
 import "reflect"
 import "errors"
 import "fmt"
+import "os"
 
 var (
 	ExtName string = ""
@@ -46,6 +47,15 @@ func (this *FuncEntry) Name() string {
 
 func (this *FuncEntry) IsGlobal() bool {
 	return this.class == "global"
+}
+
+// 支持的函数类型为，
+// 至少要是个函数或者方法
+// 最多只能返回一个值
+// 参数个数小于等于10
+// 返回值类型，必须是以下4类，string, intx, floatx, bool
+func (this *FuncEntry) IsSupported() bool {
+	return true
 }
 
 type Extension struct {
@@ -90,12 +100,12 @@ func AddFunc(name string, f interface{}) error {
 		// cbid := gencbid(0, fidx)
 		cbid := nxtcbid()
 
-		argtys := ArgsGo2Php(f)
+		argtys := ArgTypes2Php(f)
 		var cargtys *C.char = nil
 		if argtys != nil {
 			cargtys = C.CString(*argtys)
 		}
-		rety := RetGo2Php(f)
+		rety := RetType2Php(f)
 
 		cname := C.CString(name)
 		n := C.zend_add_function(C.int(cidx), C.int(fidx), C.int(cbid), cname, cargtys, C.int(rety))
@@ -161,12 +171,12 @@ func addMethod(fidx int, cname string, mname string, fn interface{}) {
 
 	fe := NewFuncEntry(cname, mname, fn)
 
-	argtys := ArgsGo2Php(fn)
+	argtys := ArgTypes2Php(fn)
 	var cargtys *C.char = nil
 	if argtys != nil {
 		cargtys = C.CString(*argtys)
 	}
-	rety := RetGo2Php(fn)
+	rety := RetType2Php(fn)
 
 	ccname := C.CString(cname)
 	cmname := C.CString(mname)
@@ -184,20 +194,36 @@ func addMethod(fidx int, cname string, mname string, fn interface{}) {
 	}
 }
 
+// TODO 如果比较多的话，可以摘出来，放在builtin.go中
 // 内置函数注册，内置类注册。
 func addBuiltins() {
 	// nice fix exit crash bug.
-	// AddFunc("GoExit", func() { os.Exit(0) })
+	AddFunc("GoExit", func() { os.Exit(0) })
 }
 
 //export on_phpgo_function_callback
-func on_phpgo_function_callback(no int, a0 uintptr, a1 uintptr) {
-	args := []uintptr{a0, a1}
+func on_phpgo_function_callback(no int, a0 uintptr, a1 uintptr, a2 uintptr, a3 uintptr, a4 uintptr, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr) uintptr {
+	args := []uintptr{a0, a1, a2, a3, a4, a5, a6, a7, a8, a9}
 	if len(args) > 0 {
 	}
+
 	fmt.Println("go callback called:", no, gext.cbs[no])
 	fmt.Println("go callback called:", args, C.GoString((*C.char)(unsafe.Pointer(a1))))
 
 	fe := gext.cbs[no]
-	fe.fn.(func())()
+	// fe.fn.(func())()
+
+	// 根据方法原型中的参数个数与类型，从当前函数中的a0-a9中提取正确的值出来
+	fval := reflect.ValueOf(fe.fn)
+	argv := ArgValuesFromPhp(fe.fn, args)
+
+	outs := fval.Call(argv)
+	ret := RetValue2Php(fe.fn, outs)
+	fmt.Println("meta call ret:", outs, ret)
+
+	return ret
+}
+
+func phpgo_call_callback() {
+
 }

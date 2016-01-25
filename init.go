@@ -16,6 +16,8 @@ func get_module() unsafe.Pointer {
 		panic("ext name not set.")
 	}
 
+	addBuiltins()
+
 	mod := C.get_module_impl()
 	fmt.Printf("mod=%p\n", mod)
 

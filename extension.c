@@ -73,15 +73,40 @@ void *get_module_impl() {
 static char *phpgo_argtys[MCN*MFN] = {0};
 static int  phpgo_retys[MCN*MFN] = {0};
 
+char *type2name(int type)
+{
+    switch (type) {
+    case IS_ARRAY:
+        return "array";
+    case IS_STRING:
+        return "string";
+        break;
+    case IS_DOUBLE:
+        return "double";
+        break;
+    case IS_BOOL:
+        return "bool";
+        break;
+    case IS_LONG:
+        return "long";
+        break;
+    case IS_NULL:
+        return "void";
+        break;
+    default:
+        return "unknown";
+        break;
+    }
+    return NULL;
+ }
+
 void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_value_ptr,
                             zval *this_ptr, int return_value_used TSRMLS_DC)
 {
     printf("function handler called.%d\n", cbid);
 
     int num_args = strlen(phpgo_argtys[cbid]);
-
-    for (int idx = 0; idx < num_args; idx ++) {
-    }
+    int supply_num_args = ZEND_NUM_ARGS();
 
     zval **args[10];
     if (zend_get_parameters_array_ex(num_args, args) == FAILURE) {
@@ -100,7 +125,8 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
 
         if (ch == 's') {
             if (prmty != IS_STRING) {
-                zend_error(E_WARNING, "Parameters type not match, need (%c), given: %d", ch, prmty);
+                zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
+                           ch, type2name(prmty));
             }
 
             convert_to_string_ex(zarg);
@@ -109,7 +135,8 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
             printf("arg%d(%c), %s(%d)\n", idx, ch, arg, Z_STRLEN_PP(zarg));
         } else if (ch == 'l') {
             if (prmty != IS_LONG) {
-                zend_error(E_WARNING, "Parameters type not match, need (%c), given: %d", ch, prmty);
+                zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
+                           ch, type2name(prmty));
             }
 
             convert_to_long_ex(zarg);
@@ -131,13 +158,42 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
             // float32(uintptr(ax))
         } else {
             printf("arg%d(%c), unknown\n", idx, ch);
-            zend_error(E_WARNING, "Parameters type not match, need (%c), given: %d", ch, prmty);
+            zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
+                       ch, type2name(prmty));
             return;
         }
     }
 
-    on_phpgo_function_callback(cbid, (unsigned long)argv[0], (unsigned long)argv[1]);
+    uint64_t rv = on_phpgo_function_callback(cbid, (unsigned long)argv[0], (unsigned long)argv[1],
+                                             (unsigned long)argv[2], (unsigned long)argv[3],
+                                             (unsigned long)argv[4], (unsigned long)argv[5],
+                                             (unsigned long)argv[6], (unsigned long)argv[7],
+                                             (unsigned long)argv[8], (unsigned long)argv[9]);
 
+    // 返回值解析转换
+    switch (phpgo_retys[cbid]) {
+    case IS_STRING:
+        RETVAL_STRINGL((char*)rv, strlen((char*)rv), 1);
+        free((char*)rv);
+        break;
+    case IS_DOUBLE:
+        RETVAL_DOUBLE(*(double*)rv);
+        free((double*)rv);
+        break;
+    case IS_BOOL:
+        RETVAL_BOOL(rv);
+        break;
+    case IS_LONG:
+        RETVAL_LONG(rv);
+        break;
+    case IS_NULL:
+        RETVAL_NULL();
+        break;
+    default:
+        // wtf?
+        zend_error(E_WARNING, "unrecognized return value: %d.", phpgo_retys[cbid]);
+        break;
+    }
     // TODO cleanup?
 }
 
