@@ -35,10 +35,11 @@ type FuncEntry struct {
 	class  string
 	method string
 	fn     interface{}
+	isctor bool
 }
 
 func NewFuncEntry(class string, method string, fn interface{}) *FuncEntry {
-	return &FuncEntry{class, method, fn}
+	return &FuncEntry{class, method, fn, false}
 }
 
 func (this *FuncEntry) Name() string {
@@ -65,6 +66,8 @@ type Extension struct {
 
 	fidx int // = 0
 
+	objs map[uintptr]interface{} // php's this => go's this
+
 	me *C.zend_module_entry
 	fe *C.zend_function_entry
 }
@@ -74,9 +77,10 @@ func NewExtension() *Extension {
 	syms := make(map[string]int, 0)
 	classes := make(map[string]int, 0)
 	cbs := make(map[int]*FuncEntry, 0)
+	objs := make(map[uintptr]interface{}, 0)
 
 	classes["global"] = 0 // 可以看作内置函数的类
-	return &Extension{syms: syms, classes: classes, cbs: cbs}
+	return &Extension{syms: syms, classes: classes, cbs: cbs, objs: objs}
 }
 
 // depcreated
@@ -132,44 +136,49 @@ func AddClass(name string, ctor interface{}) error {
 	if _, has := gext.classes[name]; !has {
 		cidx := len(gext.classes)
 
+		var n C.int = 0
+		if int(n) == 0 {
+			addCtor(cidx, name, ctor)
+			addMethods(cidx, name, ctor)
+		}
+
+		fmt.Println("add class:", name, cidx)
 		cname := C.CString(name)
-		n := C.zend_add_class(C.int(cidx), cname)
+		n = C.zend_add_class(C.int(cidx), cname)
 		C.free(unsafe.Pointer(cname))
 
 		if int(n) == 0 {
 			gext.classes[name] = cidx
-
-			addCtor(name, ctor)
-			addMethods(name, ctor)
-			return nil
 		}
+		return nil
 	}
 
 	return errors.New("add class error.")
 }
 
-func addCtor(cname string, ctor interface{}) {
+func addCtor(cidx int, cname string, ctor interface{}) {
 	mname := "__construct"
 	fidx := 0
-	addMethod(fidx, cname, mname, ctor)
+	addMethod(cidx, fidx, cname, mname, ctor, true)
 }
 
-func addMethods(cname string, ctor interface{}) {
+func addMethods(cidx int, cname string, ctor interface{}) {
 	fty := reflect.TypeOf(ctor)
 	cls := fty.Out(0)
 
 	for idx := 0; idx < cls.NumMethod(); idx++ {
-		fmt.Println(idx, cname, cls.Method(idx).Name)
-		addMethod(idx+1, cname, cls.Method(idx).Name, cls.Method(idx))
+		mth := cls.Method(idx)
+		addMethod(cidx, idx+1, cname, mth.Name, mth.Func.Interface(), false)
 	}
 }
 
-func addMethod(fidx int, cname string, mname string, fn interface{}) {
-	cidx := gext.classes[cname]
+func addMethod(cidx int, fidx int, cname string, mname string, fn interface{}, isctor bool) {
+	// cidx := gext.classes[cname]
 	// cbid := gencbid(cidx, fidx)
 	cbid := nxtcbid()
 
 	fe := NewFuncEntry(cname, mname, fn)
+	fe.isctor = isctor
 
 	argtys := ArgTypes2Php(fn)
 	var cargtys *C.char = nil
@@ -202,24 +211,39 @@ func addBuiltins() {
 }
 
 //export on_phpgo_function_callback
-func on_phpgo_function_callback(no int, a0 uintptr, a1 uintptr, a2 uintptr, a3 uintptr, a4 uintptr, a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr) uintptr {
+func on_phpgo_function_callback(cbid int, phpthis uintptr,
+	a0 uintptr, a1 uintptr, a2 uintptr, a3 uintptr, a4 uintptr,
+	a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr) uintptr {
+
 	args := []uintptr{a0, a1, a2, a3, a4, a5, a6, a7, a8, a9}
 	if len(args) > 0 {
 	}
 
-	fmt.Println("go callback called:", no, gext.cbs[no])
+	fmt.Println("go callback called:", cbid, phpthis, gext.cbs[cbid])
 	fmt.Println("go callback called:", args, C.GoString((*C.char)(unsafe.Pointer(a1))))
 
-	fe := gext.cbs[no]
+	fe := gext.cbs[cbid]
 	// fe.fn.(func())()
 
 	// 根据方法原型中的参数个数与类型，从当前函数中的a0-a9中提取正确的值出来
 	fval := reflect.ValueOf(fe.fn)
 	argv := ArgValuesFromPhp(fe.fn, args)
 
+	if phpthis != 0 && fe.isctor == false {
+		gothis := gext.objs[phpthis]
+		argv = append([]reflect.Value{reflect.ValueOf(gothis)}, argv...)
+	}
+
 	outs := fval.Call(argv)
 	ret := RetValue2Php(fe.fn, outs)
 	fmt.Println("meta call ret:", outs, ret)
+
+	if fe.isctor {
+		if phpthis == 0 {
+			panic("wtf")
+		}
+		gext.objs[phpthis] = outs[0].Interface()
+	}
 
 	return ret
 }

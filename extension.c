@@ -103,9 +103,9 @@ char *type2name(int type)
 void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_value_ptr,
                             zval *this_ptr, int return_value_used TSRMLS_DC)
 {
-    printf("function handler called.%d\n", cbid);
+    printf("function handler called.%d, this=%p\n", cbid, this_ptr);
 
-    int num_args = strlen(phpgo_argtys[cbid]);
+    int num_args = phpgo_argtys[cbid] != NULL ? strlen(phpgo_argtys[cbid]) : 0;
     int supply_num_args = ZEND_NUM_ARGS();
 
     zval **args[10];
@@ -164,11 +164,12 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
         }
     }
 
-    uint64_t rv = on_phpgo_function_callback(cbid, (unsigned long)argv[0], (unsigned long)argv[1],
-                                             (unsigned long)argv[2], (unsigned long)argv[3],
-                                             (unsigned long)argv[4], (unsigned long)argv[5],
-                                             (unsigned long)argv[6], (unsigned long)argv[7],
-                                             (unsigned long)argv[8], (unsigned long)argv[9]);
+    uint64_t rv = on_phpgo_function_callback(cbid, (unsigned long long)this_ptr,
+                                             (unsigned long long)argv[0], (unsigned long long)argv[1],
+                                             (unsigned long long)argv[2], (unsigned long long)argv[3],
+                                             (unsigned long long)argv[4], (unsigned long long)argv[5],
+                                             (unsigned long long)argv[6], (unsigned long long)argv[7],
+                                             (unsigned long long)argv[8], (unsigned long long)argv[9]);
 
     // 返回值解析转换
     switch (phpgo_retys[cbid]) {

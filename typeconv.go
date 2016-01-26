@@ -35,6 +35,7 @@ const (
 func ArgTypes2Php(fn interface{}) (ptfs *string) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
+		panic("why not a func???" + fty.Kind().String())
 		return
 	}
 
@@ -81,6 +82,7 @@ func ArgTypes2Php(fn interface{}) (ptfs *string) {
 func RetType2Php(fn interface{}) (rety int) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
+		panic("why not a func???")
 		return
 	}
 
@@ -114,6 +116,10 @@ func RetType2Php(fn interface{}) (rety int) {
 			fallthrough
 		case reflect.Uint8:
 			rety = PHPTY_IS_LONG
+		case reflect.Ptr:
+			rety = PHPTY_IS_RESOURCE
+		default:
+			fmt.Println("wtf", fty.Out(0).String(), fty.Out(0).Kind().String())
 		}
 	}
 
@@ -123,6 +129,7 @@ func RetType2Php(fn interface{}) (rety int) {
 func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
+		panic("why not a func???")
 		return
 	}
 
@@ -180,6 +187,7 @@ func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 func RetValue2Php(fn interface{}, rvs []reflect.Value) (retv uintptr) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
+		panic("why not a func???")
 		return
 	}
 	retv = 0
