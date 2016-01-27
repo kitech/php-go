@@ -73,6 +73,8 @@ void *get_module_impl() {
 static char *phpgo_argtys[MCN*MFN] = {0};
 static int  phpgo_retys[MCN*MFN] = {0};
 
+// TODO 支持php callable类型，方便实现回调？
+// TODO 支持php array类型？有点复杂。
 char *type2name(int type)
 {
     switch (type) {
@@ -80,22 +82,18 @@ char *type2name(int type)
         return "array";
     case IS_STRING:
         return "string";
-        break;
     case IS_DOUBLE:
         return "double";
-        break;
     case IS_BOOL:
         return "bool";
-        break;
     case IS_LONG:
         return "long";
-        break;
     case IS_NULL:
         return "void";
-        break;
+    case IS_RESOURCE:
+        return "pointer";
     default:
         return "unknown";
-        break;
     }
     return NULL;
  }
@@ -188,6 +186,9 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
         RETVAL_LONG(rv);
         break;
     case IS_NULL:
+        RETVAL_NULL();
+        break;
+    case IS_RESOURCE:
         RETVAL_NULL();
         break;
     default:

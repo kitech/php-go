@@ -50,6 +50,14 @@ func (this *FuncEntry) IsGlobal() bool {
 	return this.class == "global"
 }
 
+func (this *FuncEntry) IsCtor() bool {
+	return !this.IsGlobal() && this.isctor
+}
+
+func (this *FuncEntry) IsMethod() bool {
+	return !this.IsGlobal() && !this.isctor
+}
+
 // 支持的函数类型为，
 // 至少要是个函数或者方法
 // 最多只能返回一个值
@@ -229,17 +237,27 @@ func on_phpgo_function_callback(cbid int, phpthis uintptr,
 	fval := reflect.ValueOf(fe.fn)
 	argv := ArgValuesFromPhp(fe.fn, args)
 
-	if phpthis != 0 && fe.isctor == false {
+	if fe.IsMethod() {
+		if phpthis == 0 {
+			panic("wtf")
+		}
+		if _, has := gext.objs[phpthis]; !has {
+			panic("wtf")
+		}
 		gothis := gext.objs[phpthis]
-		argv = append([]reflect.Value{reflect.ValueOf(gothis)}, argv...)
+		// argv = append([]reflect.Value{reflect.ValueOf(gothis)}, argv...)
+		argv[0] = reflect.ValueOf(gothis)
 	}
 
 	outs := fval.Call(argv)
 	ret := RetValue2Php(fe.fn, outs)
 	fmt.Println("meta call ret:", outs, ret)
 
-	if fe.isctor {
+	if fe.IsCtor() {
 		if phpthis == 0 {
+			panic("wtf")
+		}
+		if _, has := gext.objs[phpthis]; has {
 			panic("wtf")
 		}
 		gext.objs[phpthis] = outs[0].Interface()
@@ -249,5 +267,8 @@ func on_phpgo_function_callback(cbid int, phpthis uintptr,
 }
 
 func phpgo_call_callback() {
+	var tno = 1
+	if tno == int(reflect.String) {
 
+	}
 }

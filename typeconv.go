@@ -35,6 +35,7 @@ const (
 func ArgTypes2Php(fn interface{}) (ptfs *string) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
+		fmt.Println("What's that?", fty.Kind().String())
 		panic("why not a func???" + fty.Kind().String())
 		return
 	}
@@ -82,6 +83,7 @@ func ArgTypes2Php(fn interface{}) (ptfs *string) {
 func RetType2Php(fn interface{}) (rety int) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
+		fmt.Println("What's that?", fty.Kind().String())
 		panic("why not a func???")
 		return
 	}
@@ -129,6 +131,7 @@ func RetType2Php(fn interface{}) (rety int) {
 func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
+		fmt.Println("What's that?", fty.Kind().String())
 		panic("why not a func???")
 		return
 	}
@@ -175,6 +178,19 @@ func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 			var arg = (C.ulonglong)(args[idx])
 			var v = reflect.ValueOf(arg).Convert(fty.In(idx))
 			argv = append(argv, v)
+		case reflect.Ptr:
+			// 有可能是go类的this指针
+			if idx == 0 {
+				// 这里仅是设置一个点位符号，这个gothis指针的位置
+				argv = append(argv, reflect.ValueOf(0))
+			} else {
+				// 不支持其他非this参数的指针
+				panic("wtf")
+			}
+		default:
+			fmt.Println("Unsupported kind:",
+				fty.In(idx).Kind().String(), fty.In(idx).String())
+			panic("wtf")
 		}
 	}
 
@@ -187,6 +203,7 @@ func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 func RetValue2Php(fn interface{}, rvs []reflect.Value) (retv uintptr) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
+		fmt.Println("What's that?", fty.Kind().String())
 		panic("why not a func???")
 		return
 	}
@@ -233,6 +250,12 @@ func RetValue2Php(fn interface{}, rvs []reflect.Value) (retv uintptr) {
 			var dty = reflect.TypeOf(uint64(0))
 			var nv = rvs[0].Convert(dty).Interface().(uint64)
 			retv = uintptr(nv)
+		case reflect.Ptr:
+			var nv = rvs[0].Pointer()
+			retv = uintptr(nv)
+		default:
+			fmt.Println("Unsupported kind:", fty.Out(0).Kind().String())
+			panic("wtf")
 		}
 	}
 
