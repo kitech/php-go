@@ -17,6 +17,8 @@ import "errors"
 import "fmt"
 import "os"
 
+// 一个程序只能创建一个扩展
+// 所以使用全局变量也没有问题。
 var (
 	ExtName string = ""
 	ExtVer  string = "1.0"
@@ -75,6 +77,12 @@ type Extension struct {
 	fidx int // = 0
 
 	objs map[uintptr]interface{} // php's this => go's this
+
+	// phpgo init function
+	module_startup_func   func(int, int) int
+	module_shutdown_func  func(int, int) int
+	request_startup_func  func(int, int) int
+	request_shutdown_func func(int, int) int
 
 	me *C.zend_module_entry
 	fe *C.zend_function_entry
@@ -216,6 +224,28 @@ func addMethod(cidx int, fidx int, cname string, mname string, fn interface{}, i
 func addBuiltins() {
 	// nice fix exit crash bug.
 	AddFunc("GoExit", func() { os.Exit(0) })
+	AddFunc("GoGo", func() {})
+	AddFunc("GoPanic", func() { panic("got") })
+	AddFunc("GoRecover", func() { recover() })
+}
+
+// 注册php module 初始化函数
+func RegisterInitFunctions(module_startup_func func(int, int) int,
+	module_shutdown_func func(int, int) int,
+	request_startup_func func(int, int) int,
+	request_shutdown_func func(int, int) int) {
+
+	gext.module_startup_func = module_startup_func
+	gext.module_shutdown_func = module_shutdown_func
+	gext.request_startup_func = request_startup_func
+	gext.request_shutdown_func = request_shutdown_func
+
+	tocip := func(f interface{}) unsafe.Pointer {
+		return unsafe.Pointer(&f)
+	}
+
+	C.phpgo_register_init_functions(tocip(gext.module_startup_func), tocip(gext.module_shutdown_func),
+		tocip(gext.request_startup_func), tocip(gext.request_shutdown_func))
 }
 
 //export on_phpgo_function_callback
@@ -266,9 +296,27 @@ func on_phpgo_function_callback(cbid int, phpthis uintptr,
 	return ret
 }
 
-func phpgo_call_callback() {
-	var tno = 1
-	if tno == int(reflect.String) {
+// 比较通用的在C中调用函数的方法
+// on_phpgo_function_callback是根据cbid来确定如何调用函数
+// 该函数直接根据函数指定fp函数指针对应的函数。
+//export call_golang_function
+func call_golang_function(fp unsafe.Pointer, a0 uintptr, a1 uintptr, a2 uintptr, a3 uintptr, a4 uintptr,
+	a5 uintptr, a6 uintptr, a7 uintptr, a8 uintptr, a9 uintptr) uintptr {
 
+	fval := reflect.ValueOf(*(*interface{})(fp))
+	if fval.Interface() == nil {
+		panic("wtf")
 	}
+
+	args := []uintptr{a0, a1, a2, a3, a4, a5, a6, a7, a8, a9}
+	if len(args) > 0 {
+	}
+	argv := ArgValuesFromPhp(fval.Interface(), args)
+	if len(argv) > 0 {
+	}
+
+	outs := fval.Call(argv)
+	ret := RetValue2Php(fval.Interface(), outs)
+
+	return ret
 }

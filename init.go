@@ -7,6 +7,9 @@ import "C"
 import "unsafe"
 import "runtime"
 
+import "time"
+import "math/rand"
+
 // import "os"
 import "fmt"
 
@@ -18,7 +21,7 @@ func get_module() unsafe.Pointer {
 
 	addBuiltins()
 
-	mod := C.get_module_impl()
+	mod := C.phpgo_get_module(C.CString(ExtName), C.CString(ExtVer))
 	fmt.Printf("mod=%p\n", mod)
 
 	return unsafe.Pointer(mod)
@@ -29,4 +32,6 @@ func init() {
 	fmt.Println("run gozend init...", omp)
 	omp = runtime.GOMAXPROCS(1)
 	fmt.Println("run gozend init...", omp)
+
+	rand.Seed(time.Now().UnixNano())
 }

@@ -19,8 +19,12 @@
 
 #include "_cgo_export.h"
 
-#define MFN 128
-#define MCN 128
+#define GLOBAL_VCLASS_ID 0
+#define MAX_ARG_NUM 10
+#define MFN 128  // MAX_FUNC_NUM
+#define MCN 128  // MAX_CLASS_NUM
+
+// TODO PHP7支持
 static zend_function_entry g_funcs[MCN][MFN] = {0};
 static zend_class_entry g_centries[MCN] = {0};
 static zend_module_entry g_entry = {0};
@@ -28,41 +32,71 @@ static zend_module_entry g_entry = {0};
 // ZEND_DECLARE_MODULE_GLOBALS(phpgo);
 // static void init_globals(zend_phpgo_globals *globals) {}
 
+static int(*phpgo_module_startup_cbfunc)(int, int) = 0;
+static int(*phpgo_module_shutdown_cbfunc)(int, int) = 0;
+static int(*phpgo_request_startup_cbfunc)(int, int) = 0;
+static int(*phpgo_request_shutdown_cbfunc)(int, int) = 0;
+
 int phpgo_module_startup_func(int type, int module_number TSRMLS_DC)
 {
     printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+    if (phpgo_module_startup_cbfunc) {
+        return call_golang_function(phpgo_module_startup_cbfunc, type, module_number, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
     return 0;
 }
 
 int phpgo_module_shutdown_func(int type, int module_number TSRMLS_DC)
 {
     printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+    if (phpgo_module_shutdown_cbfunc) {
+        return call_golang_function(phpgo_module_shutdown_cbfunc, type, module_number, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
     return 0;
 }
 
 int phpgo_request_startup_func(int type, int module_number TSRMLS_DC)
 {
     printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+    if (phpgo_request_startup_cbfunc) {
+        return call_golang_function(phpgo_request_startup_cbfunc, type, module_number, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
     return 0;
 }
 
 int phpgo_request_shutdown_func(int type, int module_number TSRMLS_DC)
 {
     printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
+    if (phpgo_request_shutdown_cbfunc) {
+        return call_golang_function(phpgo_request_shutdown_cbfunc, type, module_number, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
     return 0;
 }
 
-void *get_module_impl() {
+void phpgo_register_init_functions(void *module_startup_func, void *module_shutdown_func,
+                                   void *request_startup_func, void *request_shutdown_func)
+{
+    phpgo_module_startup_cbfunc = (int (*)(int, int))module_startup_func;
+    phpgo_module_shutdown_cbfunc = (int (*)(int, int))module_shutdown_func;
+    phpgo_request_startup_cbfunc = (int (*)(int, int))request_startup_func;
+    phpgo_request_shutdown_cbfunc = (int (*)(int, int))request_shutdown_func;
+    return;
+}
+
+// TODO module name from args
+// TODO module version from args
+// TODO module startup/shutdown... function from args, or set seperator
+void *phpgo_get_module(char *name, char *version) {
     zend_module_entry te = {
         STANDARD_MODULE_HEADER,
-        "phpgo",
-        g_funcs[0],
+        name, // "phpgo",
+        g_funcs[GLOBAL_VCLASS_ID],
         phpgo_module_startup_func,
         phpgo_module_shutdown_func,
         phpgo_request_startup_func,		/* Replace with NULL if there's nothing to do at request start */
         phpgo_request_shutdown_func,	/* Replace with NULL if there's nothing to do at request end */
         NULL,
-        "1.0",
+        version, // "1.0",
         STANDARD_MODULE_PROPERTIES
     };
 
@@ -276,3 +310,4 @@ int zend_add_method(int cidx, int fidx, int cbid, char *cname, char *mname, char
     return 0;
 }
 
+// TODO PHP class instance destroyed

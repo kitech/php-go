@@ -200,6 +200,7 @@ func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 	return
 }
 
+// TODO 多值返回的支持？
 func RetValue2Php(fn interface{}, rvs []reflect.Value) (retv uintptr) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
