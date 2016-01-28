@@ -13,6 +13,8 @@ import "math/rand"
 // import "os"
 import "fmt"
 
+//
+// 给php加载扩展时调用的扩展入口函数。
 //export get_module
 func get_module() unsafe.Pointer {
 	if len(ExtName) == 0 {

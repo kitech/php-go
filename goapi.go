@@ -91,7 +91,8 @@ func goapi_map_get(m *map[string]string, key string) *string {
 	return nil
 }
 
-func get_type_by_kind(kind reflect.Kind) reflect.Type {
+//export goapi_type
+func goapi_type(kind int) unsafe.Pointer {
 	wkind := (reflect.Kind)(kind)
 
 	var refty reflect.Type
@@ -144,12 +145,150 @@ func get_type_by_kind(kind reflect.Kind) reflect.Type {
 		refty = reflect.TypeOf(unsafe.Pointer(uintptr(0)))
 	}
 
-	return refty
+	return TOCIP(refty)
 }
 
-func new_value_by_kind(kind reflect.Kind) interface{} {
-	refty := get_type_by_kind(kind)
-	refval := reflect.New(refty)
+//export goapi_new
+func goapi_new(kind int) unsafe.Pointer {
+	refty := goapi_type(kind)
+	refval := reflect.New(FROMCIP(refty).(reflect.Type))
 
-	return refval
+	return TOCIP(refval)
+}
+func goapi_new_kind(kind reflect.Kind) unsafe.Pointer {
+	return goapi_new(int(kind))
+}
+func goapi_new_type(kty reflect.Type) unsafe.Pointer {
+	return goapi_new_kind(kty.Kind())
+}
+
+//export goapi_new_value
+func goapi_new_value(kind int, v uintptr) unsafe.Pointer {
+	wkind := reflect.Kind(kind)
+
+	var refval interface{}
+	switch wkind {
+	case reflect.Invalid:
+	case reflect.Bool:
+		if v == 0 {
+			refval = false
+		} else {
+			refval = true
+		}
+	case reflect.Int:
+		refval = int(v)
+	case reflect.Int8:
+		refval = int8(v)
+	case reflect.Int16:
+		refval = int16(v)
+	case reflect.Int32:
+		refval = int32(v)
+	case reflect.Int64:
+		refval = int64(v)
+	case reflect.Uint:
+		refval = uint(v)
+	case reflect.Uint8:
+		refval = uint8(v)
+	case reflect.Uint16:
+		refval = uint16(v)
+	case reflect.Uint32:
+		refval = uint32(v)
+	case reflect.Uint64:
+		refval = uint64(v)
+	case reflect.Uintptr:
+		refval = v
+	case reflect.Float32:
+	case reflect.Float64:
+	case reflect.Complex64:
+	case reflect.Complex128:
+	case reflect.Array:
+	case reflect.Chan:
+	case reflect.Func:
+	case reflect.Interface:
+	case reflect.Map:
+	case reflect.Ptr:
+	case reflect.Slice:
+	case reflect.String:
+		refval = C.GoString((*C.char)(unsafe.Pointer(v)))
+	case reflect.Struct:
+	case reflect.UnsafePointer:
+		refval = unsafe.Pointer(v)
+	}
+
+	return TOCIP(refval)
+}
+
+//export goapi_set_value
+func goapi_set_value(gv unsafe.Pointer, v uintptr) unsafe.Pointer {
+	giv := FROMCIP(gv)
+	gvty := reflect.TypeOf(giv)
+	nv := goapi_new_value(int(gvty.Kind()), v)
+	reflect.ValueOf(giv).Set(reflect.ValueOf(FROMCIP(nv)))
+
+	return gv
+}
+
+//export goapi_get
+func goapi_get(gv unsafe.Pointer) uintptr {
+	giv := FROMCIP(gv)
+	gvty := reflect.TypeOf(giv)
+
+	var rv uintptr
+
+	switch gvty.Kind() {
+	case reflect.Invalid:
+	case reflect.Bool:
+		if giv.(bool) {
+			rv = 1
+		} else {
+			rv = 0
+		}
+	case reflect.Int:
+		rv = (uintptr)(giv.(int))
+	case reflect.Int8:
+		rv = (uintptr)(giv.(int8))
+	case reflect.Int16:
+		rv = (uintptr)(giv.(int16))
+	case reflect.Int32:
+		rv = (uintptr)(giv.(int32))
+	case reflect.Int64:
+		rv = (uintptr)(giv.(int64))
+	case reflect.Uint:
+		rv = (uintptr)(giv.(uint))
+	case reflect.Uint8:
+		rv = (uintptr)(giv.(uint8))
+	case reflect.Uint16:
+		rv = (uintptr)(giv.(uint16))
+	case reflect.Uint32:
+		rv = (uintptr)(giv.(uint32))
+	case reflect.Uint64:
+		rv = (uintptr)(giv.(uint64))
+	case reflect.Uintptr:
+		rv = giv.(uintptr)
+	case reflect.Float32:
+	case reflect.Float64:
+	case reflect.Complex64:
+	case reflect.Complex128:
+	case reflect.Array:
+	case reflect.Chan:
+	case reflect.Func:
+	case reflect.Interface:
+	case reflect.Map:
+	case reflect.Ptr:
+	case reflect.Slice:
+	case reflect.String:
+		rv = uintptr(unsafe.Pointer(C.CString(giv.(string))))
+	case reflect.Struct:
+	case reflect.UnsafePointer:
+		rv = (uintptr)(giv.(unsafe.Pointer))
+	}
+
+	// 简洁方式
+	rvty := FROMCIP(goapi_type(int(reflect.Uintptr))).(reflect.Type)
+	if gvty.ConvertibleTo(rvty) {
+		rv = reflect.ValueOf(giv).Convert(rvty).Interface().(uintptr)
+	} else {
+		LOGP("can not convert:", gvty, rvty)
+	}
+	return rv
 }

@@ -131,9 +131,8 @@ func RetType2Php(fn interface{}) (rety int) {
 func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
-		fmt.Println("What's that?", fty.Kind().String())
+		LOGP("What's that?", fty.Kind().String())
 		panic("why not a func???")
-		return
 	}
 
 	argv = make([]reflect.Value, 0)
@@ -188,10 +187,27 @@ func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 				panic("wtf")
 			}
 		default:
-			fmt.Println("Unsupported kind:",
+			LOGP("Unsupported kind:",
 				fty.In(idx).Kind().String(), fty.In(idx).String())
-			panic("wtf")
 		}
+	}
+
+	if len(argv) != fty.NumIn() {
+		panic("wtf")
+	}
+	return
+}
+
+func ArgValuesFromPhp_p(fn interface{}, args []unsafe.Pointer) (argv []reflect.Value) {
+	fty := reflect.TypeOf(fn)
+	if fty.Kind() != reflect.Func {
+		LOGP("What's that?", fty.Kind().String())
+		panic("why not a func???")
+	}
+
+	argv = make([]reflect.Value, fty.NumIn())
+	for idx := 0; idx < fty.NumIn(); idx++ {
+		argv[idx] = reflect.ValueOf(FROMCIP(args[idx]))
 	}
 
 	if len(argv) != fty.NumIn() {
@@ -261,4 +277,19 @@ func RetValue2Php(fn interface{}, rvs []reflect.Value) (retv uintptr) {
 	}
 
 	return
+}
+
+// TODO 多值返回的支持？
+func RetValue2Php_p(fn interface{}, rvs []reflect.Value) (retv unsafe.Pointer) {
+	fty := reflect.TypeOf(fn)
+	if fty.Kind() != reflect.Func {
+		fmt.Println("What's that?", fty.Kind().String())
+		panic("why not a func???")
+		return
+	}
+
+	if fty.NumOut() > 0 {
+		return TOCIP(rvs[0])
+	}
+	return nil
 }

@@ -76,7 +76,8 @@ type Extension struct {
 
 	fidx int // = 0
 
-	objs map[uintptr]interface{} // php's this => go's this
+	objs   map[uintptr]interface{}        // php's this => go's this
+	objs_p map[unsafe.Pointer]interface{} // php's this => go's this
 
 	// phpgo init function
 	module_startup_func   func(int, int) int
@@ -94,9 +95,11 @@ func NewExtension() *Extension {
 	classes := make(map[string]int, 0)
 	cbs := make(map[int]*FuncEntry, 0)
 	objs := make(map[uintptr]interface{}, 0)
+	objs_p := make(map[unsafe.Pointer]interface{}, 0)
 
 	classes["global"] = 0 // 可以看作内置函数的类
-	return &Extension{syms: syms, classes: classes, cbs: cbs, objs: objs}
+	return &Extension{syms: syms, classes: classes, cbs: cbs,
+		objs: objs, objs_p: objs_p}
 }
 
 // depcreated
@@ -227,6 +230,7 @@ func addBuiltins() {
 	AddFunc("GoGo", func() {})
 	AddFunc("GoPanic", func() { panic("got") })
 	AddFunc("GoRecover", func() { recover() })
+	AddFunc("GoPrintln", func(v interface{}) { println(v) })
 }
 
 // 注册php module 初始化函数
@@ -248,6 +252,8 @@ func RegisterInitFunctions(module_startup_func func(int, int) int,
 		tocip(gext.request_startup_func), tocip(gext.request_shutdown_func))
 }
 
+//
+// 以整数类型传递go值类型的实现的回调方式
 //export on_phpgo_function_callback
 func on_phpgo_function_callback(cbid int, phpthis uintptr,
 	a0 uintptr, a1 uintptr, a2 uintptr, a3 uintptr, a4 uintptr,
@@ -296,6 +302,53 @@ func on_phpgo_function_callback(cbid int, phpthis uintptr,
 	return ret
 }
 
+//
+// 以指针类型传递go值类型的实现的回调方式
+//export on_phpgo_function_callback_p
+func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
+	a0 unsafe.Pointer, a1 unsafe.Pointer, a2 unsafe.Pointer, a3 unsafe.Pointer, a4 unsafe.Pointer,
+	a5 unsafe.Pointer, a6 unsafe.Pointer, a7 unsafe.Pointer, a8 unsafe.Pointer, a9 unsafe.Pointer) unsafe.Pointer {
+
+	args := []unsafe.Pointer{a0, a1, a2, a3, a4, a5, a6, a7, a8, a9}
+	if len(args) > 0 {
+	}
+
+	fmt.Println("go callback called:", cbid, phpthis, gext.cbs[cbid])
+	fmt.Println("go callback called:", args, C.GoString((*C.char)(a1)))
+
+	fe := gext.cbs[cbid]
+	// fe.fn.(func())()
+
+	// 根据方法原型中的参数个数与类型，从当前函数中的a0-a9中提取正确的值出来
+	fval := reflect.ValueOf(fe.fn)
+	argv := ArgValuesFromPhp_p(fe.fn, args)
+
+	if fe.IsMethod() {
+		CHKNILEXIT(phpthis, "wtf")
+		if _, has := gext.objs_p[phpthis]; !has {
+			panic("wtf")
+		}
+		gothis := gext.objs_p[phpthis]
+		// argv = append([]reflect.Value{reflect.ValueOf(gothis)}, argv...)
+		argv[0] = reflect.ValueOf(gothis)
+	}
+
+	outs := fval.Call(argv)
+	ret := RetValue2Php_p(fe.fn, outs)
+	fmt.Println("meta call ret:", outs, ret)
+
+	if fe.IsCtor() {
+		CHKNILEXIT(phpthis, "wtf")
+		if _, has := gext.objs_p[phpthis]; has {
+			panic("wtf")
+		}
+		gext.objs_p[phpthis] = outs[0].Interface()
+	}
+
+	return ret
+}
+
+//
 // 比较通用的在C中调用函数的方法
 // on_phpgo_function_callback是根据cbid来确定如何调用函数
 // 该函数直接根据函数指定fp函数指针对应的函数。
@@ -320,3 +373,33 @@ func call_golang_function(fp unsafe.Pointer, a0 uintptr, a1 uintptr, a2 uintptr,
 
 	return ret
 }
+
+//
+// 比较通用的在C中调用函数的方法（但参数是都指针形式的）
+// on_phpgo_function_callback是根据cbid来确定如何调用函数
+// 该函数直接根据函数指定fp函数指针对应的函数。
+//export call_golang_function_p
+func call_golang_function_p(fp unsafe.Pointer, a0 unsafe.Pointer, a1 unsafe.Pointer, a2 unsafe.Pointer,
+	a3 unsafe.Pointer, a4 unsafe.Pointer, a5 unsafe.Pointer, a6 unsafe.Pointer,
+	a7 unsafe.Pointer, a8 unsafe.Pointer, a9 unsafe.Pointer) unsafe.Pointer {
+
+	_cgo_runtime_cgocall_123()
+
+	return nil
+}
+
+func phpgo_direct_export() {
+
+}
+
+//go:linkname _cgo_runtime_cgocall_123 zend.phpgo_direct_export
+func _cgo_runtime_cgocall_123()
+
+// //go:linkname phpgo_cgo_runtime_cgocall runtime.cgocall
+// func phpgo_cgo_runtime_cgocall(unsafe.Pointer, uintptr) int32
+
+// //go:linkname phpgo_cgo_runtime_cmalloc runtime.cmalloc
+// func phpgo_cgo_runtime_cmalloc(uintptr) unsafe.Pointer
+
+// //go:linkname phpgo_cgo_runtime_cgocallback runtime.cgocallback
+// func phpgo_cgo_runtime_cgocallback(unsafe.Pointer, unsafe.Pointer, uintptr)
