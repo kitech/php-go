@@ -1,10 +1,12 @@
 package zend
 
 /*
- */
+#include <stdlib.h>
+*/
 import "C"
 import "reflect"
 import "unsafe"
+import "log"
 
 ////
 //export goapi_array_new
@@ -148,6 +150,18 @@ func goapi_type(kind int) unsafe.Pointer {
 	return TOCIP(refty)
 }
 
+//export goapi_typeof
+func goapi_typeof(v unsafe.Pointer) unsafe.Pointer {
+	gv := FROMCIP(v)
+	return TOCIP(reflect.TypeOf(gv))
+}
+
+//export goapi_typeid
+func goapi_typeid(v unsafe.Pointer) int {
+	gv := FROMCIP(v)
+	return int(reflect.TypeOf(gv).Kind())
+}
+
 //export goapi_new
 func goapi_new(kind int) unsafe.Pointer {
 	refty := goapi_type(kind)
@@ -198,7 +212,11 @@ func goapi_new_value(kind int, v uintptr) unsafe.Pointer {
 	case reflect.Uintptr:
 		refval = v
 	case reflect.Float32:
+		refval = float32(*(*C.float)(unsafe.Pointer(v)))
+		C.free(unsafe.Pointer(v))
 	case reflect.Float64:
+		refval = float64(*(*C.double)(unsafe.Pointer(v)))
+		C.free(unsafe.Pointer(v))
 	case reflect.Complex64:
 	case reflect.Complex128:
 	case reflect.Array:
@@ -232,6 +250,9 @@ func goapi_set_value(gv unsafe.Pointer, v uintptr) unsafe.Pointer {
 func goapi_get(gv unsafe.Pointer) uintptr {
 	giv := FROMCIP(gv)
 	gvty := reflect.TypeOf(giv)
+	if gvty == nil {
+		return 0
+	}
 
 	var rv uintptr
 
@@ -288,7 +309,12 @@ func goapi_get(gv unsafe.Pointer) uintptr {
 	if gvty.ConvertibleTo(rvty) {
 		rv = reflect.ValueOf(giv).Convert(rvty).Interface().(uintptr)
 	} else {
-		LOGP("can not convert:", gvty, rvty)
+		switch gvty.Kind() {
+		case reflect.Ptr:
+			rv = reflect.ValueOf(giv).Pointer()
+		default:
+			log.Panicln("can not convert:", giv, gvty.Kind(), gvty, rvty)
+		}
 	}
 	return rv
 }

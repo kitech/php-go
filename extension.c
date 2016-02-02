@@ -136,27 +136,167 @@ char *type2name(int type)
  }
 
 // 计算要转换的参数个数，有效的参数个数
-static int phpgo_function_num_args(int cbid)
+// php提供的参数个数要>=go函数需要的参数个数
+// 如果go是变长参数个数， 则计算出 最小 值，并把php提供的所有参数全部传递
+static int phpgo_function_num_args(int cbid, int supply_num_args)
 {
-    return 0;
+    int num_args = phpgo_argtys[cbid] != NULL ? strlen(phpgo_argtys[cbid]) : 0;
+
+    return num_args;
 }
 
 // PHP函数参数转换为go类型的参数
-static int phpgo_function_conv_args()
+static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval **zarg)
 {
+    int prmty = zty;
+    void *rv = NULL;
 
+    if (ch == 's') {
+        if (prmty != IS_STRING) {
+            zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
+                       ch, type2name(prmty));
+        }
+
+        convert_to_string_ex(zarg);
+        char *arg = Z_STRVAL_PP(zarg);
+        printf("arg%d(%c), %s(%d)\n", idx, ch, arg, Z_STRLEN_PP(zarg));
+        void *gv = rv = goapi_new_value(GT_String, (uint64_t)arg);
+    } else if (ch == 'l') {
+        if (prmty != IS_LONG) {
+            zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
+                       ch, type2name(prmty));
+        }
+
+        convert_to_long_ex(zarg);
+        long arg = (long)Z_LVAL_PP(zarg);
+        printf("arg%d(%c), %d\n", idx, ch, arg);
+        void *gv = rv = goapi_new_value(GT_Int64, (uint64_t)arg);
+    } else if (ch == 'b') {
+        convert_to_boolean_ex(zarg);
+        zend_bool arg = (zend_bool)Z_BVAL_PP(zarg);
+        void *gv = rv = goapi_new_value(GT_Bool, (uint64_t)arg);
+    } else if (ch == 'd') {
+        convert_to_double_ex(zarg);
+        double arg = (double)Z_DVAL_PP(zarg);
+        double* parg = calloc(1, sizeof(double));
+        *parg = (double)Z_DVAL_PP(zarg);
+        // argv[idx] = (void*)(ulong)arg;  // error
+        // memcpy(&argv[idx], &arg, sizeof(argv[idx])); // ok
+        // float32(uintptr(ax))
+        void *gv = rv = goapi_new_value(GT_Float64, (uint64_t)parg);
+    } else if (ch == 'a') {
+        if (Z_TYPE_PP(zarg) == IS_STRING) {
+            char *arg = Z_STRVAL_PP(zarg);
+            rv = goapi_new_value(GT_String, (uint64_t)arg);
+        } else if (Z_TYPE_PP(zarg) == IS_BOOL) {
+            zend_bool arg = (zend_bool)Z_BVAL_PP(zarg);
+            rv = goapi_new_value(GT_Bool, (uint64_t)arg);
+        } else if (Z_TYPE_PP(zarg) == IS_DOUBLE) {
+            double* parg = calloc(1, sizeof(double));
+            *parg = (double)Z_DVAL_PP(zarg);
+            rv = goapi_new_value(GT_Float64, (uint64_t)parg);
+        } else if (Z_TYPE_PP(zarg) == IS_LONG) {
+            long arg = (long)Z_LVAL_PP(zarg);
+            rv = goapi_new_value(GT_Int64, (uint64_t)arg);
+        } else {
+            printf("arg%d(%c), unsported to Any\n", idx, ch);
+        }
+    } else {
+        printf("arg%d(%c), unknown\n", idx, ch);
+        zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
+                   ch, type2name(prmty));
+        return NULL;
+    }
+
+    return rv;
 }
 
-// go类型的返回值转换为PHP类型的变量值
-static int phpgo_function_conv_ret()
+static void phpgo_function_conv_args(int cbid, int supply_num_args, void *argv[])
 {
+    int num_args = phpgo_function_num_args(cbid, supply_num_args);
+    // int supply_num_args = ZEND_NUM_ARGS();
 
+    zval **args[MAX_ARG_NUM] = {0};
+    if (zend_get_parameters_array_ex(num_args, args) == FAILURE) {
+        printf("param count error: %d\n", num_args);
+        WRONG_PARAM_COUNT;
+        return;
+    }
+
+    // void *argv[MAX_ARG_NUM] = {0};
+    printf("parse params: %d\n", num_args);
+    for (int idx = 0; idx < num_args; idx ++) {
+        printf("arg%d, type=%d\n", idx, Z_TYPE_PP(args[idx]));
+        int prmty = Z_TYPE_PP(args[idx]);
+        char ch = phpgo_argtys[cbid][idx];
+        zval **zarg = args[idx];
+
+        argv[idx] = phpgo_function_conv_arg(cbid, idx, ch, prmty, zarg);
+    }
+
+    return;
+}
+
+
+// go类型的返回值转换为PHP类型的变量值
+static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
+{
+    RETVAL_LONG(5);
+
+    printf("convert ret: %p\n", p0);
+    uint64_t rv = (uint64_t)goapi_get(p0);
+    // 返回值解析转换
+    switch (phpgo_retys[cbid]) {
+    case IS_STRING:
+        RETVAL_STRINGL((char*)rv, strlen((char*)rv), 1);
+        free((char*)rv);
+        break;
+    case IS_DOUBLE:
+        RETVAL_DOUBLE(*(double*)rv);
+        free((double*)rv);
+        break;
+    case IS_BOOL:
+        RETVAL_BOOL(rv);
+        break;
+    case IS_LONG:
+        RETVAL_LONG(rv);
+        break;
+    case IS_NULL:
+        RETVAL_NULL();
+        break;
+    case IS_RESOURCE:
+        RETVAL_NULL();
+        break;
+    default:
+        // wtf?
+        zend_error(E_WARNING, "unrecognized return value: %d.", phpgo_retys[cbid]);
+        break;
+    }
+
+    return 0;
 }
 
 void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_value_ptr,
                             zval *this_ptr, int return_value_used TSRMLS_DC)
 {
-    printf("function handler called.%d, this=%p\n", cbid, this_ptr);
+    printf("function handler called.%d, this=%p, atys=%s\n",
+           cbid, this_ptr, phpgo_argtys[cbid]);
+
+    void *argv[MAX_ARG_NUM] = {0};
+    phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
+
+    void* rv = on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
+                                            argv[2], argv[3], argv[4], argv[5],
+                                            argv[6], argv[7], argv[8], argv[9]);
+
+    phpgo_function_conv_ret(cbid, rv, return_value);
+}
+
+void phpgo_function_handler_dep(int cbid, int ht, zval *return_value, zval **return_value_ptr,
+                            zval *this_ptr, int return_value_used TSRMLS_DC)
+{
+    printf("function handler called.%d, this=%p, atys=%s\n",
+           cbid, this_ptr, phpgo_argtys[cbid]);
 
     int num_args = phpgo_argtys[cbid] != NULL ? strlen(phpgo_argtys[cbid]) : 0;
     int supply_num_args = ZEND_NUM_ARGS();
@@ -186,7 +326,6 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
             char *arg = Z_STRVAL_PP(zarg);
             argv[idx] = arg;
             printf("arg%d(%c), %s(%d)\n", idx, ch, arg, Z_STRLEN_PP(zarg));
-            void *gv = goapi_new_value(GT_String, argv[idx]);
         } else if (ch == 'l') {
             if (prmty != IS_LONG) {
                 zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
@@ -197,12 +336,10 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
             long arg = (long)Z_LVAL_PP(zarg);
             printf("arg%d(%c), %d\n", idx, ch, arg);
             argv[idx] = (void*)arg;
-            void *gv = goapi_new_value(GT_Int64, argv[idx]);
         } else if (ch == 'b') {
             convert_to_boolean_ex(zarg);
             zend_bool arg = (zend_bool)Z_BVAL_PP(zarg);
             argv[idx] = (void*)(long)arg;
-            void *gv = goapi_new_value(GT_Bool, argv[idx]);
         } else if (ch == 'd') {
             convert_to_double_ex(zarg);
             double arg = (double)Z_DVAL_PP(zarg);
@@ -212,7 +349,6 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
             // argv[idx] = (void*)(ulong)arg;  // error
             // memcpy(&argv[idx], &arg, sizeof(argv[idx])); // ok
             // float32(uintptr(ax))
-            void *gv = goapi_new_value(GT_Float64, argv[idx]);
         } else {
             printf("arg%d(%c), unknown\n", idx, ch);
             zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",

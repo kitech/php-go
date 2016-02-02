@@ -15,6 +15,7 @@ import "unsafe"
 import "reflect"
 import "errors"
 import "fmt"
+import "log"
 import "os"
 
 // 一个程序只能创建一个扩展
@@ -230,7 +231,7 @@ func addBuiltins() {
 	AddFunc("GoGo", func() {})
 	AddFunc("GoPanic", func() { panic("got") })
 	AddFunc("GoRecover", func() { recover() })
-	AddFunc("GoPrintln", func(v interface{}) { println(v) })
+	AddFunc("GoPrintln", func(p0 int, v interface{}) { println(v) })
 }
 
 // 注册php module 初始化函数
@@ -263,8 +264,8 @@ func on_phpgo_function_callback(cbid int, phpthis uintptr,
 	if len(args) > 0 {
 	}
 
-	fmt.Println("go callback called:", cbid, phpthis, gext.cbs[cbid])
-	fmt.Println("go callback called:", args, C.GoString((*C.char)(unsafe.Pointer(a1))))
+	log.Println("go callback called:", cbid, phpthis, gext.cbs[cbid])
+	log.Println("go callback called:", args)
 
 	fe := gext.cbs[cbid]
 	// fe.fn.(func())()
@@ -313,15 +314,15 @@ func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
 	if len(args) > 0 {
 	}
 
-	fmt.Println("go callback called:", cbid, phpthis, gext.cbs[cbid])
-	fmt.Println("go callback called:", args, C.GoString((*C.char)(a1)))
+	log.Println("go callback called:", cbid, phpthis, gext.cbs[cbid])
+	log.Println("go callback called:", args)
 
 	fe := gext.cbs[cbid]
 	// fe.fn.(func())()
 
 	// 根据方法原型中的参数个数与类型，从当前函数中的a0-a9中提取正确的值出来
 	fval := reflect.ValueOf(fe.fn)
-	argv := ArgValuesFromPhp_p(fe.fn, args)
+	argv := ArgValuesFromPhp_p(fe.fn, args, fe.IsMethod())
 
 	if fe.IsMethod() {
 		CHKNILEXIT(phpthis, "wtf")
@@ -335,7 +336,7 @@ func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
 
 	outs := fval.Call(argv)
 	ret := RetValue2Php_p(fe.fn, outs)
-	fmt.Println("meta call ret:", outs, ret)
+	log.Println("meta call ret:", outs, ret)
 
 	if fe.IsCtor() {
 		CHKNILEXIT(phpthis, "wtf")
@@ -383,23 +384,5 @@ func call_golang_function_p(fp unsafe.Pointer, a0 unsafe.Pointer, a1 unsafe.Poin
 	a3 unsafe.Pointer, a4 unsafe.Pointer, a5 unsafe.Pointer, a6 unsafe.Pointer,
 	a7 unsafe.Pointer, a8 unsafe.Pointer, a9 unsafe.Pointer) unsafe.Pointer {
 
-	_cgo_runtime_cgocall_123()
-
 	return nil
 }
-
-func phpgo_direct_export() {
-
-}
-
-//go:linkname _cgo_runtime_cgocall_123 zend.phpgo_direct_export
-func _cgo_runtime_cgocall_123()
-
-// //go:linkname phpgo_cgo_runtime_cgocall runtime.cgocall
-// func phpgo_cgo_runtime_cgocall(unsafe.Pointer, uintptr) int32
-
-// //go:linkname phpgo_cgo_runtime_cmalloc runtime.cmalloc
-// func phpgo_cgo_runtime_cmalloc(uintptr) unsafe.Pointer
-
-// //go:linkname phpgo_cgo_runtime_cgocallback runtime.cgocallback
-// func phpgo_cgo_runtime_cgocallback(unsafe.Pointer, unsafe.Pointer, uintptr)

@@ -3,12 +3,13 @@ package zend
 // go类型转换为PHP类型
 
 /*
- */
+#include <stdlib.h>
+*/
 import "C"
 import "unsafe"
 
 import (
-	"fmt"
+	"log"
 	"reflect"
 )
 
@@ -35,9 +36,7 @@ const (
 func ArgTypes2Php(fn interface{}) (ptfs *string) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
-		fmt.Println("What's that?", fty.Kind().String())
-		panic("why not a func???" + fty.Kind().String())
-		return
+		log.Panicln("What's that?", fty.Kind().String())
 	}
 
 	var tfs string
@@ -72,20 +71,25 @@ func ArgTypes2Php(fn interface{}) (ptfs *string) {
 			fallthrough
 		case reflect.Uint8:
 			tfs = tfs + "l"
+		case reflect.Ptr:
+			tfs = tfs + "p"
+		case reflect.Interface:
+			tfs = tfs + "a" // Any/interface
+		case reflect.Slice:
+			tfs = tfs + "v" // vector
 		default:
-			fmt.Println("wtf", fty.In(idx).String())
+			log.Panicln("Unsupported kind:", "wtf", fty.In(idx).String(),
+				fty.In(idx).Kind(), reflect.TypeOf(fn).IsVariadic())
 		}
 	}
-	fmt.Println("===", tfs, fty.NumIn())
+	log.Println("===", tfs, fty.NumIn())
 	return &tfs
 }
 
 func RetType2Php(fn interface{}) (rety int) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
-		fmt.Println("What's that?", fty.Kind().String())
-		panic("why not a func???")
-		return
+		log.Panicln("What's that?", fty.Kind().String())
 	}
 
 	if fty.NumOut() > 0 {
@@ -121,7 +125,7 @@ func RetType2Php(fn interface{}) (rety int) {
 		case reflect.Ptr:
 			rety = PHPTY_IS_RESOURCE
 		default:
-			fmt.Println("wtf", fty.Out(0).String(), fty.Out(0).Kind().String())
+			log.Panicln("wtf", fty.Out(0).String(), fty.Out(0).Kind().String())
 		}
 	}
 
@@ -131,8 +135,7 @@ func RetType2Php(fn interface{}) (rety int) {
 func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
-		LOGP("What's that?", fty.Kind().String())
-		panic("why not a func???")
+		log.Panicln("What's that?", fty.Kind().String())
 	}
 
 	argv = make([]reflect.Value, 0)
@@ -148,6 +151,7 @@ func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 			var arg = (*C.double)(unsafe.Pointer(args[idx]))
 			var v = reflect.ValueOf(*arg).Convert(fty.In(idx))
 			argv = append(argv, v)
+			C.free(unsafe.Pointer(args[idx]))
 		case reflect.Bool:
 			var arg = (C.int)(args[idx])
 			if arg == 1 {
@@ -186,8 +190,11 @@ func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 				// 不支持其他非this参数的指针
 				panic("wtf")
 			}
+		case reflect.Interface:
+			log.Println("Unsupported interface kind:",
+				fty.In(idx).Kind().String(), fty.In(idx).String())
 		default:
-			LOGP("Unsupported kind:",
+			log.Panicln("Unsupported kind:",
 				fty.In(idx).Kind().String(), fty.In(idx).String())
 		}
 	}
@@ -198,16 +205,32 @@ func ArgValuesFromPhp(fn interface{}, args []uintptr) (argv []reflect.Value) {
 	return
 }
 
-func ArgValuesFromPhp_p(fn interface{}, args []unsafe.Pointer) (argv []reflect.Value) {
+func ArgValuesFromPhp_p(fn interface{}, args []unsafe.Pointer, ismth bool) (argv []reflect.Value) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
-		LOGP("What's that?", fty.Kind().String())
-		panic("why not a func???")
+		log.Panicln("What's that?", fty.Kind().String())
 	}
 
 	argv = make([]reflect.Value, fty.NumIn())
+
+	aidx := 0
 	for idx := 0; idx < fty.NumIn(); idx++ {
-		argv[idx] = reflect.ValueOf(FROMCIP(args[idx]))
+		if ismth && idx == 0 {
+			continue
+		}
+
+		aty := fty.In(idx)
+		aiv := FROMCIP(args[aidx])
+		if aiv != nil {
+			if !reflect.TypeOf(aiv).ConvertibleTo(aty) {
+				log.Panicln("can't convert ", reflect.TypeOf(aiv).Kind().String(), aty.Kind().String())
+			}
+			argv[idx] = reflect.ValueOf(aiv).Convert(aty)
+		} else {
+			log.Panicln("nil arg", idx, ismth, fty.Name())
+		}
+
+		aidx += 1
 	}
 
 	if len(argv) != fty.NumIn() {
@@ -220,9 +243,7 @@ func ArgValuesFromPhp_p(fn interface{}, args []unsafe.Pointer) (argv []reflect.V
 func RetValue2Php(fn interface{}, rvs []reflect.Value) (retv uintptr) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
-		fmt.Println("What's that?", fty.Kind().String())
-		panic("why not a func???")
-		return
+		log.Panicln("What's that?", fty.Kind().String())
 	}
 	retv = 0
 
@@ -271,8 +292,7 @@ func RetValue2Php(fn interface{}, rvs []reflect.Value) (retv uintptr) {
 			var nv = rvs[0].Pointer()
 			retv = uintptr(nv)
 		default:
-			fmt.Println("Unsupported kind:", fty.Out(0).Kind().String())
-			panic("wtf")
+			log.Panicln("Unsupported kind:", fty.Out(0).Kind().String())
 		}
 	}
 
@@ -283,13 +303,12 @@ func RetValue2Php(fn interface{}, rvs []reflect.Value) (retv uintptr) {
 func RetValue2Php_p(fn interface{}, rvs []reflect.Value) (retv unsafe.Pointer) {
 	fty := reflect.TypeOf(fn)
 	if fty.Kind() != reflect.Func {
-		fmt.Println("What's that?", fty.Kind().String())
-		panic("why not a func???")
-		return
+		log.Panicln("What's that?", fty.Kind().String())
 	}
 
 	if fty.NumOut() > 0 {
-		return TOCIP(rvs[0])
+		rvr := rvs[0].Interface()
+		return TOCIP(rvr)
 	}
 	return nil
 }
