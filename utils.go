@@ -15,17 +15,24 @@ func CHKNILEXIT(v interface{}, args ...interface{}) {
 }
 
 // 看来不可能实现，需要在调用处展开的
-func CHKNILRET(v interface{}) interface{} {
-	if v == nil {
-		return nil
+func CHKNILRET(v interface{}) (dfn func()) {
+
+	dfn = func() {
+		if r := recover(); r != nil {
+		}
 	}
-	return v
+
+	if v == nil || v.(bool) == false {
+		panic(nil)
+	}
+
+	return
 }
 
 // 看来不可能实现，需要在调用处展开的
 // 也许两个连用，接近实现return到上层函数的功能，还是很啰嗦。
 func RETURN_IF_DECL(v interface{}) {
-	if v == nil {
+	if v == nil || v.(bool) == false {
 		panic(nil)
 	}
 }

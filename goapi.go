@@ -10,72 +10,42 @@ import "log"
 
 ////
 //export goapi_array_new
-func goapi_array_new(kind int) interface{} {
-	wkind := (reflect.Kind)(kind)
-
-	var arr interface{} = nil
-
-	switch wkind {
-	case reflect.Invalid:
-	case reflect.Bool:
-		arr = make([]bool, 0)
-	case reflect.Int:
-		arr = make([]int, 0)
-	case reflect.Int8:
-		arr = make([]int8, 0)
-	case reflect.Int16:
-		arr = make([]int16, 0)
-	case reflect.Int32:
-		arr = make([]int32, 0)
-	case reflect.Int64:
-		arr = make([]int64, 0)
-	case reflect.Uint:
-		arr = make([]uint, 0)
-	case reflect.Uint8:
-		arr = make([]uint8, 0)
-	case reflect.Uint16:
-		arr = make([]uint16, 0)
-	case reflect.Uint32:
-		arr = make([]uint32, 0)
-	case reflect.Uint64:
-		arr = make([]uint64, 0)
-	case reflect.Uintptr:
-		arr = make([]uintptr, 0)
-	case reflect.Float32:
-		arr = make([]float32, 0)
-	case reflect.Float64:
-		arr = make([]float64, 0)
-	case reflect.Complex64:
-	case reflect.Complex128:
-	case reflect.Array:
-	case reflect.Chan:
-	case reflect.Func:
-	case reflect.Interface:
-	case reflect.Map:
-	case reflect.Ptr:
-	case reflect.Slice:
-	case reflect.String:
-		arr = make([]string, 0)
-	case reflect.Struct:
-	case reflect.UnsafePointer:
-		arr = make([]unsafe.Pointer, 0)
-	}
-
-	// arr := make([]string, 0)
-	if 1 == reflect.String {
-
-	}
-	return reflect.ValueOf(arr).Interface()
+func goapi_array_new(kind int) unsafe.Pointer {
+	sty := FROMCIP(goapi_type(kind)).(reflect.Type)
+	log.Println(sty.Kind().String(), sty)
+	arrval := reflect.MakeSlice(reflect.SliceOf(sty), 0, 0)
+	return TOCIP(arrval.Interface())
 }
 
 //export goapi_array_push
-func goapi_array_push(arr interface{}, elem interface{}) {
+func goapi_array_push(arrp unsafe.Pointer, elm unsafe.Pointer) (retarr unsafe.Pointer) {
 	// *arr = append(*arr, s)
+	arr := FROMCIP(arrp)
+	vty := reflect.TypeOf(arr)
+	if vty != nil {
+	}
+
+	switch vty.Elem().Kind() {
+	case reflect.Int64:
+		elmval := (int64)(C.int64_t(uintptr(elm)))
+		narr := append(arr.([]int64), elmval)
+		retarr = TOCIP(narr)
+	case reflect.String:
+		// only support string element
+		elmval := C.GoString((*C.char)(elm))
+		narr := append(arr.([]string), elmval)
+		retarr = TOCIP(narr)
+	}
+	return
 }
 
 //export goapi_map_new
 func goapi_map_new() *map[string]string {
 	m := make(map[string]string, 0)
+	kty := FROMCIP(goapi_type(int(reflect.String))).(reflect.Type)
+	vty := FROMCIP(goapi_type(int(reflect.Int))).(reflect.Type)
+	reflect.MakeMap(reflect.MapOf(kty, vty))
+
 	return &m
 }
 
@@ -91,6 +61,14 @@ func goapi_map_get(m *map[string]string, key string) *string {
 		return &v
 	}
 	return nil
+}
+
+//export goapi_chan_new
+func goapi_chan_new(kind int, buffer int) interface{} {
+	cty := FROMCIP(goapi_type(kind)).(reflect.Type)
+	chval := reflect.MakeChan(cty, buffer)
+
+	return chval.Interface()
 }
 
 //export goapi_type

@@ -77,6 +77,8 @@ func ArgTypes2Php(fn interface{}) (ptfs *string) {
 			tfs = tfs + "a" // Any/interface
 		case reflect.Slice:
 			tfs = tfs + "v" // vector
+		case reflect.Map:
+			tfs = tfs + "m"
 		default:
 			log.Panicln("Unsupported kind:", "wtf", fty.In(idx).String(),
 				fty.In(idx).Kind(), reflect.TypeOf(fn).IsVariadic())
@@ -223,7 +225,8 @@ func ArgValuesFromPhp_p(fn interface{}, args []unsafe.Pointer, ismth bool) (argv
 		aiv := FROMCIP(args[aidx])
 		if aiv != nil {
 			if !reflect.TypeOf(aiv).ConvertibleTo(aty) {
-				log.Panicln("can't convert ", reflect.TypeOf(aiv).Kind().String(), aty.Kind().String())
+				log.Panicln("can't convert ", reflect.TypeOf(aiv).Kind().String(), aty.Kind().String(),
+					aty.Elem().Kind(), reflect.TypeOf(aiv).AssignableTo(aty), reflect.TypeOf(aiv).Elem().Kind())
 			}
 			argv[idx] = reflect.ValueOf(aiv).Convert(aty)
 		} else {

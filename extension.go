@@ -90,6 +90,13 @@ type Extension struct {
 	fe *C.zend_function_entry
 }
 
+// 与C中的同名结构体对应
+type phpgo_callback_signature struct {
+	argtys   [10]int8
+	rety     int
+	varidict int
+}
+
 // TODO 把entry位置与cbid分开，这样cbfunc就能够更紧凑了
 func NewExtension() *Extension {
 	syms := make(map[string]int, 0)
@@ -223,15 +230,45 @@ func addMethod(cidx int, fidx int, cname string, mname string, fn interface{}, i
 	}
 }
 
+func validFunc(fn interface{}) bool {
+	fty := reflect.TypeOf(fn)
+	if fty.Kind() != reflect.Func {
+		log.Panicln("What's that?", fty.Kind().String())
+	}
+
+	if fty.IsVariadic() {
+		log.Panicln("Can't support variadic func.", fty.Kind().String())
+	}
+
+	for idx := 0; idx < fty.NumIn(); idx++ {
+		switch fty.In(idx).Kind() {
+		case reflect.Func:
+			fallthrough
+		case reflect.Array:
+			fallthrough
+		case reflect.Slice:
+			fallthrough
+		case reflect.Chan:
+			fallthrough
+		case reflect.Map:
+			fallthrough
+		default:
+			log.Panicln("Can't support arg type:", idx, fty.In(idx).Kind().String())
+		}
+	}
+
+	return true
+}
+
 // TODO 如果比较多的话，可以摘出来，放在builtin.go中
 // 内置函数注册，内置类注册。
 func addBuiltins() {
 	// nice fix exit crash bug.
-	AddFunc("GoExit", func() { os.Exit(0) })
-	AddFunc("GoGo", func() {})
+	AddFunc("GoExit", func(code int) { os.Exit(code) })
+	AddFunc("GoGo", func(fn interface{}) { log.Println(fn) })
 	AddFunc("GoPanic", func() { panic("got") })
 	AddFunc("GoRecover", func() { recover() })
-	AddFunc("GoPrintln", func(p0 int, v interface{}) { println(v) })
+	AddFunc("GoPrintln", func(p0 int, v interface{}) { log.Println(v, 123333) })
 }
 
 // 注册php module 初始化函数
@@ -350,7 +387,7 @@ func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
 }
 
 //
-// 比较通用的在C中调用函数的方法
+// 比较通用的在C中调用go任意函数的方法
 // on_phpgo_function_callback是根据cbid来确定如何调用函数
 // 该函数直接根据函数指定fp函数指针对应的函数。
 //export call_golang_function
@@ -376,8 +413,7 @@ func call_golang_function(fp unsafe.Pointer, a0 uintptr, a1 uintptr, a2 uintptr,
 }
 
 //
-// 比较通用的在C中调用函数的方法（但参数是都指针形式的）
-// on_phpgo_function_callback是根据cbid来确定如何调用函数
+// 比较通用的在C中调用go任意函数的方法（但参数是都指针形式的）
 // 该函数直接根据函数指定fp函数指针对应的函数。
 //export call_golang_function_p
 func call_golang_function_p(fp unsafe.Pointer, a0 unsafe.Pointer, a1 unsafe.Pointer, a2 unsafe.Pointer,

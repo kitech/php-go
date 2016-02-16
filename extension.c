@@ -11,6 +11,7 @@
 #include <zend_interfaces.h>
 #include <zend_ini.h>
 #include <SAPI.h>
+#include <zend_hash.h>
 
 #ifdef ZTS
 #include "TSRM.h"
@@ -107,8 +108,16 @@ void *phpgo_get_module(char *name, char *version) {
     return &g_entry;
 }
 
+
+struct phpgo_callback_signature {
+    char argtys[10];
+    int retys;
+    int varidict;
+};
+
 static char *phpgo_argtys[MCN*MFN] = {0};
 static int  phpgo_retys[MCN*MFN] = {0};
+static struct phpgo_callback_signature phpgo_cbsigs[MCN*MFN] = {0};
 
 // TODO 支持php callable类型，方便实现回调？
 // TODO 支持php array类型？有点复杂。
@@ -127,8 +136,14 @@ char *type2name(int type)
         return "long";
     case IS_NULL:
         return "void";
+    case IS_OBJECT:
+        return "object";
     case IS_RESOURCE:
         return "pointer";
+    case IS_CALLABLE:
+        return "callable";
+    case IS_LEXICAL_VAR:
+        return "var";
     default:
         return "unknown";
     }
@@ -198,11 +213,54 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         } else if (Z_TYPE_PP(zarg) == IS_LONG) {
             long arg = (long)Z_LVAL_PP(zarg);
             rv = goapi_new_value(GT_Int64, (uint64_t)arg);
+        } else if (Z_TYPE_PP(zarg) == IS_OBJECT) {
+            void *parg = (void*)zarg;
+            rv = goapi_new_value(GT_UnsafePointer, (uint64_t)parg);
+        } else if (Z_TYPE_PP(zarg) == IS_RESOURCE) {
+            void *parg = (void*)zarg;
+            rv = goapi_new_value(GT_UnsafePointer, (uint64_t)parg);
         } else {
-            printf("arg%d(%c), unsported to Any\n", idx, ch);
+            printf("arg%d(%c), %s(%d) unsported to Any\n", idx, ch,
+                   type2name(Z_TYPE_PP(zarg)), Z_TYPE_PP(zarg));
         }
+        // TODO array/vector convert
+    } else if (ch == 'v') {
+        HashTable *arr_hash = Z_ARRVAL_PP(zarg);
+        HashPosition pos;
+        zval **edata;
+
+        for (zend_hash_internal_pointer_reset_ex(arr_hash, &pos);
+             zend_hash_get_current_data_ex(arr_hash, (void**)&edata, &pos) == SUCCESS;
+             zend_hash_move_forward_ex(arr_hash, &pos)) {
+
+            if (rv == NULL) {
+                switch (Z_TYPE_PP(edata)) {
+                case IS_LONG:
+                    rv = goapi_array_new(GT_Int64);
+                    break;
+                default:
+                    rv = goapi_array_new(GT_String);
+                    break;
+                }
+            }
+
+            switch (Z_TYPE_PP(edata)) {
+            case IS_LONG:
+                rv = goapi_array_push(rv, (void*)Z_LVAL_PP(edata));
+                break;
+            default:
+                convert_to_string_ex(edata);
+                printf("array idx(%d)=T(%d=%s, val=%s)\n", pos,
+                       Z_TYPE_PP(edata), type2name(Z_TYPE_PP(edata)),
+                       Z_STRVAL_PP(edata));
+                rv = goapi_array_push(rv, Z_STRVAL_PP(edata));
+                break;
+            }
+        }
+
+        // TODO array/map convert
     } else {
-        printf("arg%d(%c), unknown\n", idx, ch);
+        printf("arg%d(%c), %s(%d)\n", idx, ch, type2name(prmty), prmty);
         zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
                    ch, type2name(prmty));
         return NULL;
