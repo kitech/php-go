@@ -40,27 +40,58 @@ func goapi_array_push(arrp unsafe.Pointer, elm unsafe.Pointer) (retarr unsafe.Po
 }
 
 //export goapi_map_new
-func goapi_map_new() *map[string]string {
-	m := make(map[string]string, 0)
+func goapi_map_new() unsafe.Pointer {
+	// m := make(map[string]string, 0)
 	kty := FROMCIP(goapi_type(int(reflect.String))).(reflect.Type)
-	vty := FROMCIP(goapi_type(int(reflect.Int))).(reflect.Type)
-	reflect.MakeMap(reflect.MapOf(kty, vty))
+	vty := FROMCIP(goapi_type(int(reflect.String))).(reflect.Type)
+	mv := reflect.MakeMap(reflect.MapOf(kty, vty))
+	m := mv.Interface().(map[string]string)
 
-	return &m
+	return TOCIP(m)
 }
 
 //export goapi_map_add
-func goapi_map_add(m *map[string]string, key string, value string) {
-	(*m)[key] = value
+func goapi_map_add(mp unsafe.Pointer, keyp unsafe.Pointer, valuep unsafe.Pointer) {
+	m := FROMCIP(mp).(map[string]string)
+	key := C.GoString((*C.char)(keyp))
+	value := C.GoString((*C.char)(valuep))
+
+	m[key] = value
 }
 
 //export goapi_map_get
-func goapi_map_get(m *map[string]string, key string) *string {
-	if _, has := (*m)[key]; has {
-		v := (*m)[key]
-		return &v
+func goapi_map_get(mp unsafe.Pointer, keyp unsafe.Pointer) unsafe.Pointer {
+	m := FROMCIP(mp).(map[string]string)
+	key := C.GoString((*C.char)(keyp))
+
+	if _, has := m[key]; has {
+		v := m[key]
+		return unsafe.Pointer(C.CString(v))
 	}
+
 	return nil
+}
+
+//export goapi_map_del
+func goapi_map_del(mp unsafe.Pointer, keyp unsafe.Pointer) {
+	m := FROMCIP(mp).(map[string]string)
+	key := C.GoString((*C.char)(keyp))
+
+	if _, has := m[key]; has {
+		delete(m, key)
+	}
+}
+
+//export goapi_map_has
+func goapi_map_has(mp unsafe.Pointer, keyp unsafe.Pointer) bool {
+	m := FROMCIP(mp).(map[string]string)
+	key := C.GoString((*C.char)(keyp))
+
+	if _, has := m[key]; has {
+		return true
+	}
+
+	return false
 }
 
 //export goapi_chan_new
@@ -224,8 +255,8 @@ func goapi_set_value(gv unsafe.Pointer, v uintptr) unsafe.Pointer {
 	return gv
 }
 
-//export goapi_get
-func goapi_get(gv unsafe.Pointer) uintptr {
+//export goapi_get_value
+func goapi_get_value(gv unsafe.Pointer) uintptr {
 	giv := FROMCIP(gv)
 	gvty := reflect.TypeOf(giv)
 	if gvty == nil {

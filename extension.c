@@ -223,6 +223,7 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
             printf("arg%d(%c), %s(%d) unsported to Any\n", idx, ch,
                    type2name(Z_TYPE_PP(zarg)), Z_TYPE_PP(zarg));
         }
+
         // TODO array/vector convert
     } else if (ch == 'v') {
         HashTable *arr_hash = Z_ARRVAL_PP(zarg);
@@ -251,14 +252,41 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
             default:
                 convert_to_string_ex(edata);
                 printf("array idx(%d)=T(%d=%s, val=%s)\n", pos,
-                       Z_TYPE_PP(edata), type2name(Z_TYPE_PP(edata)),
-                       Z_STRVAL_PP(edata));
+                       Z_TYPE_PP(edata), type2name(Z_TYPE_PP(edata)), Z_STRVAL_PP(edata));
                 rv = goapi_array_push(rv, Z_STRVAL_PP(edata));
                 break;
             }
         }
 
         // TODO array/map convert
+    } else if (ch == 'm') {
+        // 简化成string=>string映射吧
+        rv = goapi_map_new();
+
+        HashTable *arr_hash = Z_ARRVAL_PP(zarg);
+        HashPosition pos;
+        zval **edata;
+
+        for (zend_hash_internal_pointer_reset_ex(arr_hash, &pos);
+             zend_hash_get_current_data_ex(arr_hash, (void**)&edata, &pos) == SUCCESS;
+             zend_hash_move_forward_ex(arr_hash, &pos)) {
+
+            zval ekey = {0};
+            zval *pekey = &ekey;
+
+            zend_hash_get_current_key_zval_ex(arr_hash, &ekey, &pos);
+
+            switch (Z_TYPE_PP(edata)) {
+            default:
+                convert_to_string_ex(&pekey);
+                convert_to_string_ex(edata);
+                printf("array idx(%d)=K(%s)=T(%d=%s, val=%s)\n", pos, Z_STRVAL_P(pekey),
+                       Z_TYPE_PP(edata), type2name(Z_TYPE_PP(edata)), Z_STRVAL_PP(edata));
+                goapi_map_add(rv, Z_STRVAL_P(pekey), Z_STRVAL_PP(edata));
+                break;
+            }
+        }
+
     } else {
         printf("arg%d(%c), %s(%d)\n", idx, ch, type2name(prmty), prmty);
         zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
@@ -302,7 +330,7 @@ static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
     RETVAL_LONG(5);
 
     printf("convert ret: %p\n", p0);
-    uint64_t rv = (uint64_t)goapi_get(p0);
+    uint64_t rv = (uint64_t)goapi_get_value(p0);
     // 返回值解析转换
     switch (phpgo_retys[cbid]) {
     case IS_STRING:
