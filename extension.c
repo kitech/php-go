@@ -175,7 +175,7 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         convert_to_string_ex(zarg);
         char *arg = Z_STRVAL_PP(zarg);
         printf("arg%d(%c), %s(%d)\n", idx, ch, arg, Z_STRLEN_PP(zarg));
-        void *gv = rv = goapi_new_value(GT_String, (uint64_t)arg);
+        goapi_new_value(GT_String, (uint64_t)arg, &rv);
     } else if (ch == 'l') {
         if (prmty != IS_LONG) {
             zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
@@ -185,11 +185,11 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         convert_to_long_ex(zarg);
         long arg = (long)Z_LVAL_PP(zarg);
         printf("arg%d(%c), %d\n", idx, ch, arg);
-        void *gv = rv = goapi_new_value(GT_Int64, (uint64_t)arg);
+        goapi_new_value(GT_Int64, (uint64_t)arg, &rv);
     } else if (ch == 'b') {
         convert_to_boolean_ex(zarg);
         zend_bool arg = (zend_bool)Z_BVAL_PP(zarg);
-        void *gv = rv = goapi_new_value(GT_Bool, (uint64_t)arg);
+        goapi_new_value(GT_Bool, (uint64_t)arg, &rv);
     } else if (ch == 'd') {
         convert_to_double_ex(zarg);
         double arg = (double)Z_DVAL_PP(zarg);
@@ -198,27 +198,27 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         // argv[idx] = (void*)(ulong)arg;  // error
         // memcpy(&argv[idx], &arg, sizeof(argv[idx])); // ok
         // float32(uintptr(ax))
-        void *gv = rv = goapi_new_value(GT_Float64, (uint64_t)parg);
+        goapi_new_value(GT_Float64, (uint64_t)parg, &rv);
     } else if (ch == 'a') {
         if (Z_TYPE_PP(zarg) == IS_STRING) {
             char *arg = Z_STRVAL_PP(zarg);
-            rv = goapi_new_value(GT_String, (uint64_t)arg);
+            goapi_new_value(GT_String, (uint64_t)arg, &rv);
         } else if (Z_TYPE_PP(zarg) == IS_BOOL) {
             zend_bool arg = (zend_bool)Z_BVAL_PP(zarg);
-            rv = goapi_new_value(GT_Bool, (uint64_t)arg);
+            goapi_new_value(GT_Bool, (uint64_t)arg, &rv);
         } else if (Z_TYPE_PP(zarg) == IS_DOUBLE) {
             double* parg = calloc(1, sizeof(double));
             *parg = (double)Z_DVAL_PP(zarg);
-            rv = goapi_new_value(GT_Float64, (uint64_t)parg);
+            goapi_new_value(GT_Float64, (uint64_t)parg, &rv);
         } else if (Z_TYPE_PP(zarg) == IS_LONG) {
             long arg = (long)Z_LVAL_PP(zarg);
-            rv = goapi_new_value(GT_Int64, (uint64_t)arg);
+            goapi_new_value(GT_Int64, (uint64_t)arg, &rv);
         } else if (Z_TYPE_PP(zarg) == IS_OBJECT) {
             void *parg = (void*)zarg;
-            rv = goapi_new_value(GT_UnsafePointer, (uint64_t)parg);
+            goapi_new_value(GT_UnsafePointer, (uint64_t)parg, &rv);
         } else if (Z_TYPE_PP(zarg) == IS_RESOURCE) {
             void *parg = (void*)zarg;
-            rv = goapi_new_value(GT_UnsafePointer, (uint64_t)parg);
+            goapi_new_value(GT_UnsafePointer, (uint64_t)parg, &rv);
         } else {
             printf("arg%d(%c), %s(%d) unsported to Any\n", idx, ch,
                    type2name(Z_TYPE_PP(zarg)), Z_TYPE_PP(zarg));
@@ -237,23 +237,23 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
             if (rv == NULL) {
                 switch (Z_TYPE_PP(edata)) {
                 case IS_LONG:
-                    rv = goapi_array_new(GT_Int64);
+                    goapi_array_new(GT_Int64, &rv);
                     break;
                 default:
-                    rv = goapi_array_new(GT_String);
+                    goapi_array_new(GT_String, &rv);
                     break;
                 }
             }
 
             switch (Z_TYPE_PP(edata)) {
             case IS_LONG:
-                rv = goapi_array_push(rv, (void*)Z_LVAL_PP(edata));
+                goapi_array_push(rv, (void*)Z_LVAL_PP(edata), &rv);
                 break;
             default:
                 convert_to_string_ex(edata);
                 printf("array idx(%d)=T(%d=%s, val=%s)\n", pos,
                        Z_TYPE_PP(edata), type2name(Z_TYPE_PP(edata)), Z_STRVAL_PP(edata));
-                rv = goapi_array_push(rv, Z_STRVAL_PP(edata));
+                goapi_array_push(rv, Z_STRVAL_PP(edata), &rv);
                 break;
             }
         }
@@ -261,7 +261,7 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         // TODO array/map convert
     } else if (ch == 'm') {
         // 简化成string=>string映射吧
-        rv = goapi_map_new();
+        goapi_map_new(&rv);
 
         HashTable *arr_hash = Z_ARRVAL_PP(zarg);
         HashPosition pos;
@@ -371,10 +371,11 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
     void *argv[MAX_ARG_NUM] = {0};
     phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
 
-    void* rv = on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
-                                            argv[2], argv[3], argv[4], argv[5],
-                                            argv[6], argv[7], argv[8], argv[9]);
-
+    void* rv = NULL;
+    on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
+                                 argv[2], argv[3], argv[4], argv[5],
+                                 argv[6], argv[7], argv[8], argv[9], &rv);
+    printf("inout ret:%p\n", rv);
     phpgo_function_conv_ret(cbid, rv, return_value);
 }
 

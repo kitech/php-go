@@ -10,15 +10,15 @@ import "log"
 
 ////
 //export goapi_array_new
-func goapi_array_new(kind int) unsafe.Pointer {
-	sty := FROMCIP(goapi_type(kind)).(reflect.Type)
+func goapi_array_new(kind int, retpp *unsafe.Pointer) {
+	sty := FROMCIP(goapi_type_r(kind)).(reflect.Type)
 	log.Println(sty.Kind().String(), sty)
 	arrval := reflect.MakeSlice(reflect.SliceOf(sty), 0, 0)
-	return TOCIP(arrval.Interface())
+	*retpp = TOCIP(arrval.Interface())
 }
 
 //export goapi_array_push
-func goapi_array_push(arrp unsafe.Pointer, elm unsafe.Pointer) (retarr unsafe.Pointer) {
+func goapi_array_push(arrp unsafe.Pointer, elm unsafe.Pointer, retpp *unsafe.Pointer) {
 	// *arr = append(*arr, s)
 	arr := FROMCIP(arrp)
 	vty := reflect.TypeOf(arr)
@@ -29,25 +29,25 @@ func goapi_array_push(arrp unsafe.Pointer, elm unsafe.Pointer) (retarr unsafe.Po
 	case reflect.Int64:
 		elmval := (int64)(C.int64_t(uintptr(elm)))
 		narr := append(arr.([]int64), elmval)
-		retarr = TOCIP(narr)
+		*retpp = TOCIP(narr)
 	case reflect.String:
 		// only support string element
 		elmval := C.GoString((*C.char)(elm))
 		narr := append(arr.([]string), elmval)
-		retarr = TOCIP(narr)
+		*retpp = TOCIP(narr)
 	}
 	return
 }
 
 //export goapi_map_new
-func goapi_map_new() unsafe.Pointer {
+func goapi_map_new(retpp *unsafe.Pointer) {
 	// m := make(map[string]string, 0)
-	kty := FROMCIP(goapi_type(int(reflect.String))).(reflect.Type)
-	vty := FROMCIP(goapi_type(int(reflect.String))).(reflect.Type)
+	kty := FROMCIP(goapi_type_r(int(reflect.String))).(reflect.Type)
+	vty := FROMCIP(goapi_type_r(int(reflect.String))).(reflect.Type)
 	mv := reflect.MakeMap(reflect.MapOf(kty, vty))
 	m := mv.Interface().(map[string]string)
 
-	return TOCIP(m)
+	*retpp = TOCIP(m)
 }
 
 //export goapi_map_add
@@ -60,16 +60,16 @@ func goapi_map_add(mp unsafe.Pointer, keyp unsafe.Pointer, valuep unsafe.Pointer
 }
 
 //export goapi_map_get
-func goapi_map_get(mp unsafe.Pointer, keyp unsafe.Pointer) unsafe.Pointer {
+func goapi_map_get(mp unsafe.Pointer, keyp unsafe.Pointer, retpp *unsafe.Pointer) {
 	m := FROMCIP(mp).(map[string]string)
 	key := C.GoString((*C.char)(keyp))
 
 	if _, has := m[key]; has {
 		v := m[key]
-		return unsafe.Pointer(C.CString(v))
+		*retpp = unsafe.Pointer(C.CString(v))
 	}
 
-	return nil
+	return
 }
 
 //export goapi_map_del
@@ -96,14 +96,20 @@ func goapi_map_has(mp unsafe.Pointer, keyp unsafe.Pointer) bool {
 
 //export goapi_chan_new
 func goapi_chan_new(kind int, buffer int) interface{} {
-	cty := FROMCIP(goapi_type(kind)).(reflect.Type)
+	cty := FROMCIP(goapi_type_r(kind)).(reflect.Type)
 	chval := reflect.MakeChan(cty, buffer)
 
 	return chval.Interface()
 }
 
+func goapi_type_r(kind int) unsafe.Pointer {
+	var retpp unsafe.Pointer
+	goapi_type(kind, &retpp)
+	return retpp
+}
+
 //export goapi_type
-func goapi_type(kind int) unsafe.Pointer {
+func goapi_type(kind int, retpp *unsafe.Pointer) {
 	wkind := (reflect.Kind)(kind)
 
 	var refty reflect.Type
@@ -156,13 +162,13 @@ func goapi_type(kind int) unsafe.Pointer {
 		refty = reflect.TypeOf(unsafe.Pointer(uintptr(0)))
 	}
 
-	return TOCIP(refty)
+	*retpp = TOCIP(refty)
 }
 
 //export goapi_typeof
-func goapi_typeof(v unsafe.Pointer) unsafe.Pointer {
+func goapi_typeof(v unsafe.Pointer, retpp *unsafe.Pointer) {
 	gv := FROMCIP(v)
-	return TOCIP(reflect.TypeOf(gv))
+	*retpp = TOCIP(reflect.TypeOf(gv))
 }
 
 //export goapi_typeid
@@ -172,21 +178,21 @@ func goapi_typeid(v unsafe.Pointer) int {
 }
 
 //export goapi_new
-func goapi_new(kind int) unsafe.Pointer {
-	refty := goapi_type(kind)
+func goapi_new(kind int, retpp *unsafe.Pointer) {
+	refty := goapi_type_r(kind)
 	refval := reflect.New(FROMCIP(refty).(reflect.Type))
 
-	return TOCIP(refval)
+	*retpp = TOCIP(refval)
 }
-func goapi_new_kind(kind reflect.Kind) unsafe.Pointer {
-	return goapi_new(int(kind))
+func goapi_new_kind(kind reflect.Kind, retpp *unsafe.Pointer) {
+	goapi_new(int(kind), retpp)
 }
-func goapi_new_type(kty reflect.Type) unsafe.Pointer {
-	return goapi_new_kind(kty.Kind())
+func goapi_new_type(kty reflect.Type, retpp *unsafe.Pointer) {
+	goapi_new_kind(kty.Kind(), retpp)
 }
 
 //export goapi_new_value
-func goapi_new_value(kind int, v uintptr) unsafe.Pointer {
+func goapi_new_value(kind int, v uintptr, retpp *unsafe.Pointer) {
 	wkind := reflect.Kind(kind)
 
 	var refval interface{}
@@ -242,17 +248,20 @@ func goapi_new_value(kind int, v uintptr) unsafe.Pointer {
 		refval = unsafe.Pointer(v)
 	}
 
-	return TOCIP(refval)
+	*retpp = TOCIP(refval)
 }
 
 //export goapi_set_value
-func goapi_set_value(gv unsafe.Pointer, v uintptr) unsafe.Pointer {
+func goapi_set_value(gv unsafe.Pointer, v uintptr, retpp *unsafe.Pointer) {
 	giv := FROMCIP(gv)
 	gvty := reflect.TypeOf(giv)
-	nv := goapi_new_value(int(gvty.Kind()), v)
+	var nv unsafe.Pointer
+	goapi_new_value(int(gvty.Kind()), v, &nv)
 	reflect.ValueOf(giv).Set(reflect.ValueOf(FROMCIP(nv)))
 
-	return gv
+	if *retpp != gv {
+		*retpp = gv
+	}
 }
 
 //export goapi_get_value
@@ -314,7 +323,7 @@ func goapi_get_value(gv unsafe.Pointer) uintptr {
 	}
 
 	// 简洁方式
-	rvty := FROMCIP(goapi_type(int(reflect.Uintptr))).(reflect.Type)
+	rvty := FROMCIP(goapi_type_r(int(reflect.Uintptr))).(reflect.Type)
 	if gvty.ConvertibleTo(rvty) {
 		rv = reflect.ValueOf(giv).Convert(rvty).Interface().(uintptr)
 	} else {

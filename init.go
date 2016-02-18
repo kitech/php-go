@@ -36,4 +36,5 @@ func init() {
 	fmt.Println("run gozend init...", omp)
 
 	rand.Seed(time.Now().UnixNano())
+
 }

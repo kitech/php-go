@@ -345,7 +345,8 @@ func on_phpgo_function_callback(cbid int, phpthis uintptr,
 //export on_phpgo_function_callback_p
 func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
 	a0 unsafe.Pointer, a1 unsafe.Pointer, a2 unsafe.Pointer, a3 unsafe.Pointer, a4 unsafe.Pointer,
-	a5 unsafe.Pointer, a6 unsafe.Pointer, a7 unsafe.Pointer, a8 unsafe.Pointer, a9 unsafe.Pointer) unsafe.Pointer {
+	a5 unsafe.Pointer, a6 unsafe.Pointer, a7 unsafe.Pointer, a8 unsafe.Pointer, a9 unsafe.Pointer,
+	retpp *unsafe.Pointer) {
 
 	args := []unsafe.Pointer{a0, a1, a2, a3, a4, a5, a6, a7, a8, a9}
 	if len(args) > 0 {
@@ -383,7 +384,8 @@ func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
 		gext.objs_p[phpthis] = outs[0].Interface()
 	}
 
-	return ret
+	*retpp = ret
+	// return ret
 }
 
 //
