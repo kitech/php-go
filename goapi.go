@@ -95,11 +95,41 @@ func goapi_map_has(mp unsafe.Pointer, keyp unsafe.Pointer) bool {
 }
 
 //export goapi_chan_new
-func goapi_chan_new(kind int, buffer int) interface{} {
+func goapi_chan_new(kind int, buffer int, retpp *unsafe.Pointer) {
 	cty := FROMCIP(goapi_type_r(kind)).(reflect.Type)
 	chval := reflect.MakeChan(cty, buffer)
 
-	return chval.Interface()
+	*retpp = TOCIP(chval.Interface())
+}
+
+// TODO
+//export goapi_chan_read
+func goapi_chan_read(chp unsafe.Pointer, retpp *unsafe.Pointer) {
+	ch := FROMCIP(chp)
+	chv := reflect.ValueOf(ch)
+
+	rv, ok := chv.Recv()
+	if ok {
+		*retpp = TOCIP(rv.Interface())
+	}
+}
+
+// TODO
+//export goapi_chan_write
+func goapi_chan_write(chp unsafe.Pointer, elm unsafe.Pointer) {
+	ch := FROMCIP(chp)
+	chv := reflect.ValueOf(ch)
+
+	chv.Send(reflect.ValueOf(FROMCIP(elm)))
+}
+
+// TODO
+//export goapi_chan_close
+func goapi_chan_close(chp unsafe.Pointer) {
+	ch := FROMCIP(chp)
+	chv := reflect.ValueOf(ch)
+
+	chv.Close()
 }
 
 func goapi_type_r(kind int) unsafe.Pointer {
