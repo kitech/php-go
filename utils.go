@@ -50,7 +50,7 @@ type Any interface{}
 func init() {
 	// log.SetFlags(log.Llongfile | log.LstdFlags)
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
-	log.SetPrefix("phpgo")
+	log.SetPrefix("[phpgo] ")
 }
 
 func TOCIP(v interface{}) unsafe.Pointer {
