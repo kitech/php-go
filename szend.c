@@ -14,7 +14,11 @@ int gozend_call_user_function(zval **object, char *func_name, zval *retval_ptr, 
 {
     zval function_name;
     INIT_ZVAL(function_name);
+#ifdef ZEND_ENGINE_3
+    ZVAL_STRING(&function_name, func_name);
+#else
     ZVAL_STRING(&function_name, func_name, 1);
+#endif
 
     assert(retval_ptr != NULL);
     if (call_user_function(CG(function_table), object , &function_name,
@@ -28,7 +32,11 @@ int gozend_call_user_function_string_ex(char *func_name, char *str, char **retst
 {
     zval *args[9];
     MAKE_STD_ZVAL(args[0]);
+#ifdef ZEND_ENGINE_3
+    ZVAL_STRING(args[0], str);
+#else
     ZVAL_STRING(args[0], str, 1);
+#endif
 
     zval retval_ptr;
     INIT_ZVAL(retval_ptr);
@@ -53,6 +61,26 @@ char *gozend_call_user_function_string(char *func_name, char *str)
     char *res = NULL;
     int ret = gozend_call_user_function_string_ex(func_name, str, &res, NULL);
     return res;
+}
+
+int gozend_iszts() {
+#ifdef ZTS
+    return 1;
+#else
+    return 0;
+#endif
+}
+
+int gozend_zend_version_no() {
+#ifdef ZEND_ENGINE_3
+     return ZEND_ENGINE_3;
+#else
+     return ZEND_ENGINE_2;
+#endif
+}
+
+char* gozend_zend_version() {
+    return get_zend_version();
 }
 
 void gozend_efree(void *ptr) {
@@ -91,12 +119,18 @@ char gozend_eval_string(char *code)
     return ret == FAILURE;
 }
 
+
+
 void call_user_function_callback(char *data)
 {
     zval *args[9];
     MAKE_STD_ZVAL(args[0]);
+#ifdef ZEND_ENGINE_3
+    ZVAL_STRING(args[0], data);
+#else
     ZVAL_STRING(args[0], data, 1);
-    zend_uint argc = 0;
+#endif
+    uint32_t argc = 0;
 
     zval retval_ptr;
     INIT_ZVAL(retval_ptr);
@@ -104,7 +138,11 @@ void call_user_function_callback(char *data)
     char *func_name = "say_hello_123";
     zval function_name;
     INIT_ZVAL(function_name);
+#ifdef ZEND_ENGINE_3
+    ZVAL_STRING(&function_name, func_name);
+#else
     ZVAL_STRING(&function_name, func_name, 1);
+#endif
 
     void *cobj = NULL; /* no object */
     if (call_user_function(CG(function_table), cobj , &function_name,
