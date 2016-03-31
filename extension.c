@@ -130,7 +130,11 @@ char *type2name(int type)
         return "string";
     case IS_DOUBLE:
         return "double";
+#ifdef ZEND_ENGINE_3
+    case _IS_BOOL:
+#else
     case IS_BOOL:
+#endif
         return "bool";
     case IS_LONG:
         return "long";
@@ -203,7 +207,11 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         if (Z_TYPE_PP(zarg) == IS_STRING) {
             char *arg = Z_STRVAL_PP(zarg);
             goapi_new_value(GT_String, (uint64_t)arg, &rv);
+#ifdef ZEND_ENGINE_3
+        } else if (Z_TYPE_PP(zarg) == _IS_BOOL) {
+#else
         } else if (Z_TYPE_PP(zarg) == IS_BOOL) {
+#endif
             zend_bool arg = (zend_bool)Z_BVAL_PP(zarg);
             goapi_new_value(GT_Bool, (uint64_t)arg, &rv);
         } else if (Z_TYPE_PP(zarg) == IS_DOUBLE) {
@@ -231,7 +239,11 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         zval **edata;
 
         for (zend_hash_internal_pointer_reset_ex(arr_hash, &pos);
+#ifdef ZEND_ENGINE_3
+             (edata = zend_hash_get_current_data_ex(arr_hash, &pos)) != NULL;
+#else
              zend_hash_get_current_data_ex(arr_hash, (void**)&edata, &pos) == SUCCESS;
+#endif
              zend_hash_move_forward_ex(arr_hash, &pos)) {
 
             if (rv == NULL) {
@@ -268,7 +280,11 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         zval **edata;
 
         for (zend_hash_internal_pointer_reset_ex(arr_hash, &pos);
+#ifdef ZEND_ENGINE_3
+             (edata = zend_hash_get_current_data_ex(arr_hash, &pos)) != NULL;
+#else
              zend_hash_get_current_data_ex(arr_hash, (void**)&edata, &pos) == SUCCESS;
+#endif
              zend_hash_move_forward_ex(arr_hash, &pos)) {
 
             zval ekey = {0};
@@ -334,14 +350,22 @@ static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
     // 返回值解析转换
     switch (phpgo_retys[cbid]) {
     case IS_STRING:
+#ifdef ZEND_ENGINE_3
+        RETVAL_STRINGL((char*)rv, strlen((char*)rv));
+#else
         RETVAL_STRINGL((char*)rv, strlen((char*)rv), 1);
+#endif
         free((char*)rv);
         break;
     case IS_DOUBLE:
         RETVAL_DOUBLE(*(double*)rv);
         free((double*)rv);
         break;
+#ifdef ZEND_ENGINE_3
+    case _IS_BOOL:
+#else
     case IS_BOOL:
+#endif
         RETVAL_BOOL(rv);
         break;
     case IS_LONG:
@@ -362,6 +386,26 @@ static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
     return 0;
 }
 
+
+#ifdef ZEND_ENGINE_3
+void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *return_value)
+{
+    zval *this_ptr = &execute_data->This;
+    printf("function handler called.%d, this=%p, atys=%s\n",
+           cbid, this_ptr, phpgo_argtys[cbid]);
+
+    void *argv[MAX_ARG_NUM] = {0};
+    phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
+
+    void* rv = NULL;
+    on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
+                                 argv[2], argv[3], argv[4], argv[5],
+                                 argv[6], argv[7], argv[8], argv[9], &rv);
+    printf("inout ret:%p\n", rv);
+    phpgo_function_conv_ret(cbid, rv, return_value);
+}
+
+#else  // php < 7.0
 void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_value_ptr,
                             zval *this_ptr, int return_value_used TSRMLS_DC)
 {
@@ -454,14 +498,22 @@ void phpgo_function_handler_dep(int cbid, int ht, zval *return_value, zval **ret
     // 返回值解析转换
     switch (phpgo_retys[cbid]) {
     case IS_STRING:
+#ifdef ZEND_ENGINE_3
+        RETVAL_STRINGL((char*)rv, strlen((char*)rv));
+#else
         RETVAL_STRINGL((char*)rv, strlen((char*)rv), 1);
+#endif
         free((char*)rv);
         break;
     case IS_DOUBLE:
         RETVAL_DOUBLE(*(double*)rv);
         free((double*)rv);
         break;
+#ifdef ZEND_ENGINE_3
+    case _IS_BOOL:
+#else
     case IS_BOOL:
+#endif
         RETVAL_BOOL(rv);
         break;
     case IS_LONG:
@@ -480,14 +532,22 @@ void phpgo_function_handler_dep(int cbid, int ht, zval *return_value, zval **ret
     }
     // TODO cleanup?
 }
+#endif
 
 static void (*phpgo_handlers[MCN*MFN])(INTERNAL_FUNCTION_PARAMETERS) = {0};
 
-
+#ifdef ZEND_ENGINE_3
 #define PHPGO_FH_DECL(no) \
     void phpgo_function_handler_##no(INTERNAL_FUNCTION_PARAMETERS) {     \
+        phpgo_function_handler7(no, execute_data, return_value);         \
+    }
+#else
+#define PHPGO_FH_DECL(no)                                               \
+    void phpgo_function_handler_##no(INTERNAL_FUNCTION_PARAMETERS) {    \
         phpgo_function_handler(no, ht, return_value, return_value_ptr, this_ptr, return_value_used); \
     }
+#endif
+
 #define PHPGO_FH_ADD(no) phpgo_handlers[no] = phpgo_function_handler_##no
 
 // PHPGO_FH_DECL(0); PHPGO_FH_DECL(1); PHPGO_FH_DECL(2); PHPGO_FH_DECL(3); PHPGO_FH_DECL(4);
