@@ -108,6 +108,9 @@ void *phpgo_get_module(char *name, char *version) {
     return &g_entry;
 }
 
+int phpgo_get_module_number() {
+    return g_entry.module_number;
+}
 
 struct phpgo_callback_signature {
     char argtys[10];

@@ -7,6 +7,7 @@ package phpgo
 #include <zend_exceptions.h>
 #include <zend_interfaces.h>
 #include <zend_ini.h>
+#include <zend_constants.h>
 #include <SAPI.h>
 
 */
@@ -18,6 +19,7 @@ import "fmt"
 import "log"
 import "os"
 import "zend"
+import "strings"
 
 // 一个程序只能创建一个扩展
 // 所以使用全局变量也没有问题。
@@ -263,6 +265,56 @@ func validFunc(fn interface{}) bool {
 	}
 
 	return true
+}
+
+/*
+* @param namespace string optional
+ */
+func AddConstant(name string, val interface{}, namespace interface{}) {
+	if len(name) == 0 {
+		return
+	}
+
+	if namespace != nil {
+		log.Println("Warning, namespace parameter not supported now. omited.")
+	}
+
+	module_number := C.phpgo_get_module_number()
+	modname := C.CString(strings.ToUpper(name))
+	defer C.free(unsafe.Pointer(modname))
+
+	if val != nil {
+		switch v := val.(type) {
+		case string:
+			modval := C.CString(v)
+			defer C.free(unsafe.Pointer(modval))
+
+			C.zend_register_stringl_constant(modname, C.size_t(len(name)), modval, C.size_t(len(v)),
+				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
+		case int, int32, uint32, int64, uint64, int8, uint8:
+			iv := reflect.ValueOf(v).Convert(reflect.TypeOf(int64(1))).Interface()
+			C.zend_register_long_constant(modname, C.size_t(len(name)), C.zend_long(iv.(int64)),
+				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
+		case float32, float64:
+			fv := reflect.ValueOf(v).Convert(reflect.TypeOf(float64(1.0))).Interface()
+			C.zend_register_double_constant(modname, C.size_t(len(name)), C.double(fv.(float64)),
+				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
+		case bool:
+			var bv int8 = 1
+			if v == false {
+				bv = 0
+			}
+			C.zend_register_bool_constant(modname, C.size_t(len(name)), C.zend_bool(bv),
+				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
+		default:
+			valty := reflect.TypeOf(val)
+			log.Panicln("Warning, unsported constant value type:", valty.Kind().String())
+		}
+	} else {
+		C.zend_register_null_constant(modname, C.size_t(len(name)),
+			C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
+	}
+
 }
 
 // TODO 如果比较多的话，可以摘出来，放在builtin.go中
