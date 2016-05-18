@@ -30,15 +30,20 @@ go get:
 
 coming soon
 
+
 mannual:
 
-    cd $GOPATH/src
+    cd $GOPATH/src/
     git clone https://github.com/kitech/php-go.git
-    mv php-go/zend ./zend
-    mv php-go/phpgo ./phpgo
-    go install zend
-    go install phpgo
-    
+    ln -s php-go/zend ./
+    ln -s php-go/phpgo ./
+    make -C php-go/
+    ls -lh php-go/hello.so
+    php56 -d extension=php-go/hello.so php-go/examples/hello.php
+
+
+note: php7 support not complete, use php5 for test.
+
 
 ### Examples
 
@@ -77,6 +82,8 @@ mannual:
 ### TODO
 
 - [ ] install with go get 
+- [ ] improve php7 support
+- [ ] namespace support
 
 
 Contributing
