@@ -4,7 +4,7 @@ import "log"
 import "reflect"
 import "math/rand"
 import "time"
-import "phpgo"
+import "github.com/kitech/php-go/phpgo"
 
 type PGDemo struct {
 }
