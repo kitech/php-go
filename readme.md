@@ -35,9 +35,9 @@ make
 ```
 
 
-mannual:
+manual:
 
-    mkdir -p $GOPATH/src/kitech
+    mkdir -p $GOPATH/src/github.com/kitech
     git clone https://github.com/kitech/php-go.git $GOPATH/src/kitech/php-go
     cd $GOPATH/src/kitech/php-go
     make
