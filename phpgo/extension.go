@@ -18,7 +18,7 @@ import "errors"
 import "fmt"
 import "log"
 import "os"
-import "zend"
+import "github.com/kitech/php-go/zend"
 import "strings"
 
 // 一个程序只能创建一个扩展

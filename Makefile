@@ -11,10 +11,10 @@ export CGO_CFLAGS := $(CFLAGS) $(CGO_CFLAGS)
 export CGO_LDFLAGS := $(LDFLAGS) $(CGO_LDFLAGS)
 
 all:
-	go install zend
-	go install phpgo
+	go install ./zend
+	go install ./phpgo
 	go build -v -linkshared -buildmode=c-shared -o hello.so examples/hello.go
-	# php56 -d extension=php-go/hello.so php-go/examples/hello.php
+	# php56 -d extension=./hello.so examples/hello.php
 
 clean:
 	rm -f ../../pkg/linux_amd64/zend.a

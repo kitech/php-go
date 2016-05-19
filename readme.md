@@ -28,18 +28,21 @@ Simple, easy, fun to write PHP extensions.
 
 go get:
 
-coming soon
+```
+go get github.com/kitech/php-go
+cd $GOPATH/src/github.com/kitech/php-go
+make
+```
 
 
-mannual:
+manual:
 
-    cd $GOPATH/src/
-    git clone https://github.com/kitech/php-go.git
-    ln -s php-go/zend ./
-    ln -s php-go/phpgo ./
-    make -C php-go/
+    mkdir -p $GOPATH/src/github.com/kitech
+    git clone https://github.com/kitech/php-go.git $GOPATH/src/kitech/php-go
+    cd $GOPATH/src/kitech/php-go
+    make
     ls -lh php-go/hello.so
-    php56 -d extension=php-go/hello.so php-go/examples/hello.php
+    php56 -d extension=./hello.so examples/hello.php
 
 
 note: php7 support not complete, use php5 for test.
