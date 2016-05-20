@@ -43,7 +43,6 @@ static int(*phpgo_request_shutdown_cbfunc)(int, int) = 0;
 
 int phpgo_module_startup_func(int type, int module_number TSRMLS_DC)
 {
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
     if (phpgo_module_startup_cbfunc) {
         return call_golang_function(phpgo_module_startup_cbfunc, type, module_number, 0, 0, 0, 0, 0, 0, 0, 0);
     }
@@ -52,7 +51,6 @@ int phpgo_module_startup_func(int type, int module_number TSRMLS_DC)
 
 int phpgo_module_shutdown_func(int type, int module_number TSRMLS_DC)
 {
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
     if (phpgo_module_shutdown_cbfunc) {
         return call_golang_function(phpgo_module_shutdown_cbfunc, type, module_number, 0, 0, 0, 0, 0, 0, 0, 0);
     }
@@ -61,7 +59,6 @@ int phpgo_module_shutdown_func(int type, int module_number TSRMLS_DC)
 
 int phpgo_request_startup_func(int type, int module_number TSRMLS_DC)
 {
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
     if (phpgo_request_startup_cbfunc) {
         return call_golang_function(phpgo_request_startup_cbfunc, type, module_number, 0, 0, 0, 0, 0, 0, 0, 0);
     }
@@ -70,7 +67,6 @@ int phpgo_request_startup_func(int type, int module_number TSRMLS_DC)
 
 int phpgo_request_shutdown_func(int type, int module_number TSRMLS_DC)
 {
-    printf("%s:%d %s\n", __FILE__, __LINE__, __FUNCTION__);
     if (phpgo_request_shutdown_cbfunc) {
         return call_golang_function(phpgo_request_shutdown_cbfunc, type, module_number, 0, 0, 0, 0, 0, 0, 0, 0);
     }
@@ -141,6 +137,9 @@ char *type2name(int type)
         return "bool";
     case IS_LONG:
         return "long";
+#ifdef ZEND_ENGINE_3
+    case IS_UNDEF:
+#endif
     case IS_NULL:
         return "void";
     case IS_OBJECT:
@@ -348,7 +347,9 @@ static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
 {
     RETVAL_LONG(5);
 
-    printf("convert ret: %p\n", p0);
+    printf("convert ret: %p, type: %d(%s)\n",
+           p0, phpgo_retys[cbid], type2name(phpgo_retys[cbid]));
+
     uint64_t rv = (uint64_t)goapi_get_value(p0);
     // 返回值解析转换
     switch (phpgo_retys[cbid]) {

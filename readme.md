@@ -87,6 +87,7 @@ note: php7 support not complete, use php5 for test.
 - [ ] install with go get 
 - [ ] improve php7 support
 - [ ] namespace support
+- [ ] multiple extension support
 
 
 Contributing

@@ -2,6 +2,7 @@ package phpgo
 
 /*
 #include "extension.h"
+#include "../zend/compat.h"
 
 #include <php.h>
 #include <zend_exceptions.h>
@@ -289,29 +290,29 @@ func AddConstant(name string, val interface{}, namespace interface{}) {
 			modval := C.CString(v)
 			defer C.free(unsafe.Pointer(modval))
 
-			C.zend_register_stringl_constant(modname, C.uint(len(name)), modval, C.uint(len(v)),
+			C.zend_register_stringl_constant_compat(modname, C.size_t(len(name)), modval, C.size_t(len(v)),
 				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
 		case int, int32, uint32, int64, uint64, int8, uint8:
 			iv := reflect.ValueOf(v).Convert(reflect.TypeOf(int64(1))).Interface()
-			C.zend_register_long_constant(modname, C.uint(len(name)), C.long(iv.(int64)),
+			C.zend_register_long_constant_compat(modname, C.size_t(len(name)), C.zend_long(iv.(int64)),
 				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
 		case float32, float64:
 			fv := reflect.ValueOf(v).Convert(reflect.TypeOf(float64(1.0))).Interface()
-			C.zend_register_double_constant(modname, C.uint(len(name)), C.double(fv.(float64)),
+			C.zend_register_double_constant_compat(modname, C.size_t(len(name)), C.double(fv.(float64)),
 				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
 		case bool:
 			var bv int8 = 1
 			if v == false {
 				bv = 0
 			}
-			C.zend_register_bool_constant(modname, C.uint(len(name)), C.zend_bool(bv),
+			C.zend_register_bool_constant_compat(modname, C.size_t(len(name)), C.zend_bool(bv),
 				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
 		default:
 			valty := reflect.TypeOf(val)
 			log.Panicln("Warning, unsported constant value type:", valty.Kind().String())
 		}
 	} else {
-		C.zend_register_null_constant(modname, C.uint(len(name)),
+		C.zend_register_null_constant_compat(modname, C.size_t(len(name)),
 			C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
 	}
 

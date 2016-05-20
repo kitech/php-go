@@ -4,6 +4,9 @@ package zend
 
 /*
 #include <stdlib.h>
+
+#include <zend.h>
+#include "../zend/compat.h"
 */
 import "C"
 import "unsafe"
@@ -14,17 +17,19 @@ import (
 )
 
 const (
-	PHPTY_IS_NULL         = 0
-	PHPTY_IS_LONG         = 1
-	PHPTY_IS_DOUBLE       = 2
-	PHPTY_IS_BOOL         = 3
-	PHPTY_IS_ARRAY        = 4
-	PHPTY_IS_OBJECT       = 5
-	PHPTY_IS_STRING       = 6
-	PHPTY_IS_RESOURCE     = 7
-	PHPTY_IS_CONSTANT     = 8
-	PHPTY_IS_CONSTANT_AST = 9
-	PHPTY_IS_CALLABLE     = 10
+	PHPTY_IS_NULL         = C.IS_NULL
+	PHPTY_IS_LONG         = C.IS_LONG
+	PHPTY_IS_DOUBLE       = C.IS_DOUBLE
+	PHPTY_IS_BOOL         = C._IS_BOOL
+	PHPTY_IS_TRUE         = C.IS_TRUE
+	PHPTY_IS_FALSE        = C.IS_FALSE
+	PHPTY_IS_ARRAY        = C.IS_ARRAY
+	PHPTY_IS_OBJECT       = C.IS_OBJECT
+	PHPTY_IS_STRING       = C.IS_STRING
+	PHPTY_IS_RESOURCE     = C.IS_RESOURCE
+	PHPTY_IS_CONSTANT     = C.IS_CONSTANT
+	PHPTY_IS_CONSTANT_AST = C.IS_CONSTANT_AST
+	PHPTY_IS_CALLABLE     = C.IS_CALLABLE
 
 	PHPTY_IS_CONSTANT_TYPE_MASK    = 0x00f
 	PHPTY_IS_CONSTANT_UNQUALIFIED  = 0x010
