@@ -38,8 +38,8 @@ make
 manual:
 
     mkdir -p $GOPATH/src/github.com/kitech
-    git clone https://github.com/kitech/php-go.git $GOPATH/src/kitech/php-go
-    cd $GOPATH/src/kitech/php-go
+    git clone https://github.com/kitech/php-go.git $GOPATH/src/github.com/kitech/php-go
+    cd $GOPATH/src/github.com/kitech/php-go
     make
     ls -lh php-go/hello.so
     php56 -d extension=./hello.so examples/hello.php
