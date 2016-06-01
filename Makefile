@@ -1,5 +1,8 @@
 
-PHPDIR=/usr
+ifeq ($(PHPDIR),)
+	PHPDIR=/usr
+endif
+
 PHPCONFIG=$(PHPDIR)/bin/php-config
 
 export PATH := $(PHPDIR)/bin:$(PATH)
@@ -20,4 +23,3 @@ clean:
 	rm -f ../../pkg/linux_amd64/zend.a
 	rm -f ../../pkg/linux_amd64/phpgo.a
 	rm -f hello.so
-
