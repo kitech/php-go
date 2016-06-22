@@ -45,25 +45,9 @@ manual:
     php56 -d extension=./hello.so examples/hello.php
 
 
-note: php7 support not complete, use php5 for test.
-
-
 ### Examples
 
-    import "phpgo"
-    
-    func module_startup(ptype int, module_number int) int {
-        return 0
-    }
-    func module_shutdown(ptype int, module_number int) int {
-        return 0
-    }
-    func request_startup(ptype int, module_number int) int {
-        return 0
-    }
-    func request_shutdown(ptype int, module_number int) int {
-        return 0
-    }
+    import "github.com/kitech/php-go/phpgo"
     
     function foo_in_go() {
     }
@@ -75,7 +59,6 @@ note: php7 support not complete, use php5 for test.
     
     func init() {
 	    phpgo.InitExtension("mymod", "1.0")
-	    phpgo.RegisterInitFunctions(module_startup, module_shutdown, request_startup, request_shutdown)
         
         phpgo.AddFunc("foo_in_php", foo_in_go)
         phpgo.AddClass("bar_in_php", NewBar)
@@ -85,7 +68,7 @@ note: php7 support not complete, use php5 for test.
 ### TODO
 
 - [ ] install with go get 
-- [ ] improve php7 support
+- [x] improve php7 support
 - [ ] namespace support
 - [ ] multiple extension support
 

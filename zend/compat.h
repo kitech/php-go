@@ -20,6 +20,11 @@ typedef long zend_long;
 #define IS_TRUE (IS_CALLABLE+1)
 #define IS_FALSE (IS_CALLABLE+2)
 #define IS_UNDEF (IS_CALLABLE+3)
+
+#if !defined(IS_CONSTANT_AST)
+#error "Maybe you are using not supported zend < 2.5.0 (PHP < 5.5.0)"
+#endif
+
 #endif
 
 ZEND_API void zend_register_stringl_constant_compat(const char *name, size_t name_len, char *strval, size_t strlen, int flags, int module_number);
