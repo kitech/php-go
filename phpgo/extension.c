@@ -329,10 +329,36 @@ static void phpgo_function_conv_args(int cbid, int supply_num_args, void *argv[]
 
     // void *argv[MAX_ARG_NUM] = {0};
     printf("parse params: %d\n", num_args);
-    for (int idx = 0; idx < num_args; idx ++) {
+    for (int idx = 0; idx < num_args-1; idx ++) {
         printf("arg%d, type=%d\n", idx, Z_TYPE_PP(args[idx]));
         int prmty = Z_TYPE_PP(args[idx]);
         char ch = phpgo_argtys[cbid][idx];
+        zval **zarg = args[idx];
+
+        argv[idx] = phpgo_function_conv_arg(cbid, idx, ch, prmty, zarg);
+    }
+
+    return;
+}
+
+static void phpgo_method_conv_args(int cbid, int supply_num_args, void *argv[])
+{
+    int num_args = phpgo_function_num_args(cbid, supply_num_args);
+    // int supply_num_args = ZEND_NUM_ARGS();
+
+    zval **args[MAX_ARG_NUM] = {0};
+    if (zend_get_parameters_array_ex(num_args-1, args) == FAILURE) {
+        printf("param count error: %d\n", num_args);
+        WRONG_PARAM_COUNT;
+        return;
+    }
+
+    // void *argv[MAX_ARG_NUM] = {0};
+    printf("parse params: %d\n", num_args);
+    for (int idx = 0; idx < num_args-1; idx ++) {
+        printf("arg%d, type=%d\n", idx, Z_TYPE_PP(args[idx]));
+        int prmty = Z_TYPE_PP(args[idx]);
+        char ch = phpgo_argtys[cbid][idx+1];
         zval **zarg = args[idx];
 
         argv[idx] = phpgo_function_conv_arg(cbid, idx, ch, prmty, zarg);
@@ -399,7 +425,11 @@ void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *re
            cbid, this_ptr, phpgo_argtys[cbid]);
 
     void *argv[MAX_ARG_NUM] = {0};
-    phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
+    if (this_ptr == NULL) {
+        phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
+    } else {
+        phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
+    }
 
     void* rv = NULL;
     on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
@@ -417,7 +447,11 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
            cbid, this_ptr, phpgo_argtys[cbid]);
 
     void *argv[MAX_ARG_NUM] = {0};
-    phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
+    if (this_ptr == NULL) {
+        phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
+    } else {
+        phpgo_method_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
+    }
 
     void* rv = NULL;
     on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
