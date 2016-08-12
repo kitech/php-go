@@ -22,6 +22,7 @@ Simple, easy, fun to write PHP extensions.
 * Modern Linux/Unix system
 * PHP 5.5+/7.x
 * go version 1.4+
+* php5-dev installed (`apt-get install php5-dev`)
 
 
 ### Build & Install
