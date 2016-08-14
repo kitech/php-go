@@ -423,7 +423,7 @@ func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
 	if len(args) > 0 {
 	}
 
-	log.Println("go callback called:", cbid, phpthis, gext.cbs[cbid])
+	log.Println("go callback called:", cbid, phpthis, gext.cbs[cbid], op)
 	log.Println("go callback called:", args)
 
 	fe := gext.cbs[cbid]

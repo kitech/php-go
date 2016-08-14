@@ -447,9 +447,12 @@ void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *re
 void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_value_ptr,
                             zval *this_ptr, int return_value_used TSRMLS_DC)
 {
-    const zend_object_handlers* op;
+    void* op = NULL;
     if (NULL != this_ptr && IS_OBJECT == this_ptr->type) {
-        op = this_ptr->value.obj.handlers;
+        zend_object_handle handle = this_ptr->value.obj.handle;
+        struct _store_object *obj;
+        obj = &EG(objects_store).object_buckets[handle].bucket.obj;
+        op = &obj->object;
     }
     printf("function handler called.%d, this=%p, atys=%s, op=%p\n",
            cbid, this_ptr, phpgo_argtys[cbid], op);
@@ -464,7 +467,7 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
     void* rv = NULL;
     on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
                                  argv[2], argv[3], argv[4], argv[5],
-                                 argv[6], argv[7], argv[8], argv[9], &rv, (void*)op);
+                                 argv[6], argv[7], argv[8], argv[9], &rv, (void*) op);
     printf("inout ret:%p\n", rv);
     phpgo_function_conv_ret(cbid, rv, return_value);
 }
