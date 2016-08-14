@@ -421,8 +421,12 @@ static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
 void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *return_value)
 {
     zval *this_ptr = &execute_data->This;
-    printf("function handler called.%d, this=%p, atys=%s\n",
-           cbid, this_ptr, phpgo_argtys[cbid]);
+    zend_object* op;
+    if (NULL != this_ptr && IS_OBJECT == execute_data->This.u1.v.type) {
+        op = execute_data->This.value.obj;
+    }
+    printf("function handler called.%d, this=%p, atys=%s, op=%p\n",
+           cbid, this_ptr, phpgo_argtys[cbid], op);
 
     void *argv[MAX_ARG_NUM] = {0};
     if (this_ptr == NULL) {
@@ -434,7 +438,7 @@ void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *re
     void* rv = NULL;
     on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
                                  argv[2], argv[3], argv[4], argv[5],
-                                 argv[6], argv[7], argv[8], argv[9], &rv);
+                                 argv[6], argv[7], argv[8], argv[9], &rv, (void*) op);
     printf("inout ret:%p\n", rv);
     phpgo_function_conv_ret(cbid, rv, return_value);
 }
@@ -443,8 +447,12 @@ void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *re
 void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_value_ptr,
                             zval *this_ptr, int return_value_used TSRMLS_DC)
 {
-    printf("function handler called.%d, this=%p, atys=%s\n",
-           cbid, this_ptr, phpgo_argtys[cbid]);
+    const zend_object_handlers* op;
+    if (NULL != this_ptr && IS_OBJECT == this_ptr->type) {
+        op = this_ptr->value.obj.handlers;
+    }
+    printf("function handler called.%d, this=%p, atys=%s, op=%p\n",
+           cbid, this_ptr, phpgo_argtys[cbid], op);
 
     void *argv[MAX_ARG_NUM] = {0};
     if (this_ptr == NULL) {
@@ -456,7 +464,7 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
     void* rv = NULL;
     on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
                                  argv[2], argv[3], argv[4], argv[5],
-                                 argv[6], argv[7], argv[8], argv[9], &rv);
+                                 argv[6], argv[7], argv[8], argv[9], &rv, (void*)op);
     printf("inout ret:%p\n", rv);
     phpgo_function_conv_ret(cbid, rv, return_value);
 }
