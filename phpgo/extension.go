@@ -46,10 +46,11 @@ type FuncEntry struct {
 	method string
 	fn     interface{}
 	isctor bool
+	isdtor bool
 }
 
 func NewFuncEntry(class string, method string, fn interface{}) *FuncEntry {
-	return &FuncEntry{class, method, fn, false}
+	return &FuncEntry{class, method, fn, false, false}
 }
 
 func (this *FuncEntry) Name() string {
@@ -64,8 +65,12 @@ func (this *FuncEntry) IsCtor() bool {
 	return !this.IsGlobal() && this.isctor
 }
 
+func (this *FuncEntry) IsDtor() bool {
+	return !this.IsGlobal() && this.isdtor
+}
+
 func (this *FuncEntry) IsMethod() bool {
-	return !this.IsGlobal() && !this.isctor
+	return !this.IsGlobal() && !this.isctor && !this.isdtor
 }
 
 // 支持的函数类型为，
@@ -174,6 +179,7 @@ func AddClass(name string, ctor interface{}) error {
 		var n C.int = 0
 		if int(n) == 0 {
 			addCtor(cidx, name, ctor)
+			addDtor(cidx, name, ctor)
 			addMethods(cidx, name, ctor)
 		}
 
@@ -191,10 +197,16 @@ func AddClass(name string, ctor interface{}) error {
 	return errors.New("add class error.")
 }
 
+func addDtor(cidx int, cname string, ctor interface{}) {
+	mname := "__destruct"
+	fidx := 1
+	addMethod(cidx, fidx, cname, mname, ctor, false, true)
+}
+
 func addCtor(cidx int, cname string, ctor interface{}) {
 	mname := "__construct"
 	fidx := 0
-	addMethod(cidx, fidx, cname, mname, ctor, true)
+	addMethod(cidx, fidx, cname, mname, ctor, true, false)
 }
 
 func addMethods(cidx int, cname string, ctor interface{}) {
@@ -203,17 +215,18 @@ func addMethods(cidx int, cname string, ctor interface{}) {
 
 	for idx := 0; idx < cls.NumMethod(); idx++ {
 		mth := cls.Method(idx)
-		addMethod(cidx, idx+1, cname, mth.Name, mth.Func.Interface(), false)
+		addMethod(cidx, idx+2, cname, mth.Name, mth.Func.Interface(), false, false)
 	}
 }
 
-func addMethod(cidx int, fidx int, cname string, mname string, fn interface{}, isctor bool) {
+func addMethod(cidx int, fidx int, cname string, mname string, fn interface{}, isctor, isdtor bool) {
 	// cidx := gext.classes[cname]
 	// cbid := gencbid(cidx, fidx)
 	cbid := nxtcbid()
 
 	fe := NewFuncEntry(cname, mname, fn)
 	fe.isctor = isctor
+	fe.isdtor = isdtor
 
 	argtys := zend.ArgTypes2Php(fn)
 	var cargtys *C.char = nil
@@ -404,17 +417,21 @@ func on_phpgo_function_callback(cbid int, phpthis uintptr,
 func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
 	a0 unsafe.Pointer, a1 unsafe.Pointer, a2 unsafe.Pointer, a3 unsafe.Pointer, a4 unsafe.Pointer,
 	a5 unsafe.Pointer, a6 unsafe.Pointer, a7 unsafe.Pointer, a8 unsafe.Pointer, a9 unsafe.Pointer,
-	retpp *unsafe.Pointer) {
+	retpp *unsafe.Pointer, op unsafe.Pointer) {
 
 	args := []unsafe.Pointer{a0, a1, a2, a3, a4, a5, a6, a7, a8, a9}
 	if len(args) > 0 {
 	}
 
-	log.Println("go callback called:", cbid, phpthis, gext.cbs[cbid])
+	log.Println("go callback called:", cbid, phpthis, gext.cbs[cbid], op)
 	log.Println("go callback called:", args)
 
 	fe := gext.cbs[cbid]
 	// fe.fn.(func())()
+
+	if op == nil && !fe.IsGlobal() {
+		panic("is not a class or a function")
+	}
 
 	// 根据方法原型中的参数个数与类型，从当前函数中的a0-a9中提取正确的值出来
 	fval := reflect.ValueOf(fe.fn)
@@ -422,10 +439,10 @@ func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
 
 	if fe.IsMethod() {
 		zend.CHKNILEXIT(phpthis, "wtf")
-		if _, has := gext.objs_p[phpthis]; !has {
+		gothis, has := gext.objs_p[op]
+		if !has {
 			panic("wtf")
 		}
-		gothis := gext.objs_p[phpthis]
 		// argv = append([]reflect.Value{reflect.ValueOf(gothis)}, argv...)
 		argv[0] = reflect.ValueOf(gothis)
 	}
@@ -436,10 +453,18 @@ func on_phpgo_function_callback_p(cbid int, phpthis unsafe.Pointer,
 
 	if fe.IsCtor() {
 		zend.CHKNILEXIT(phpthis, "wtf")
-		if _, has := gext.objs_p[phpthis]; has {
+		if _, has := gext.objs_p[op]; has {
 			panic("wtf")
 		}
-		gext.objs_p[phpthis] = outs[0].Interface()
+		gext.objs_p[op] = outs[0].Interface()
+	}
+
+	if fe.IsDtor() {
+		zend.CHKNILEXIT(phpthis, "wtf")
+		if _, has := gext.objs_p[op]; !has {
+			panic("wtf")
+		}
+		delete(gext.objs_p, op)
 	}
 
 	*retpp = ret
