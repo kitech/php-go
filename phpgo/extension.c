@@ -367,6 +367,11 @@ static void phpgo_method_conv_args(int cbid, int supply_num_args, void *argv[])
     return;
 }
 
+static void phpgo_function_reutrn_php_array(void *p0, zval *return_value) {
+    array_init(return_value);
+
+    goapi_set_php_array(p0, &return_value);
+}
 
 // go类型的返回值转换为PHP类型的变量值
 static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
@@ -407,6 +412,9 @@ static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
     case IS_RESOURCE:
         RETVAL_NULL();
         break;
+    case IS_ARRAY:
+        phpgo_function_reutrn_php_array(p0, return_value);
+        break;
     default:
         // wtf?
         zend_error(E_WARNING, "unrecognized return value: %d.", phpgo_retys[cbid]);
@@ -415,6 +423,7 @@ static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
 
     return 0;
 }
+
 
 
 #ifdef ZEND_ENGINE_3
