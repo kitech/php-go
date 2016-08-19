@@ -5,16 +5,21 @@
 #endif
 
 //create zval
+//php7 zval在栈 无法返回 故返回nil 调用方处理
 zval* php_array_create_zval() {
 #ifdef ZEND_ENGINE_3
-    zval* arr;
-    return arr;
+    return NULL;
 #else
     zval* arr;
     ALLOC_INIT_ZVAL(arr);
     array_init(arr);
     return arr;
 #endif
+}
+
+//create php7 zval
+void php7_array_init(zval* zv) {
+    array_init(zv);
 }
 
 //$arr[int] = int;

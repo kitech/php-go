@@ -36,12 +36,24 @@ func (this *PGDemo) Hello3() [3][]int {
 	return d
 }
 
-func (this *PGDemo) Hello4() map[string]int {
-	a := make(map[string]int)
-	a["age"] = 100
-	a["price"] = 200
-	a["num"] = 300
-	return a
+func (this *PGDemo) Hello4() map[string]map[string]map[int]string {
+	temp := make(map[int]string)
+	temp[0] = "zhangsan"
+	temp[1] = "hongkong"
+	temp[2] = "23"
+
+	temp1 := make(map[int]string)
+	temp1[0] = "list"
+	temp1[1] = "beijing"
+	temp1[2] = "26"
+
+	a := make(map[string]map[int]string)
+	a["go"] = temp
+	a["java"] = temp1
+
+	b := make(map[string]map[string]map[int]string)
+	b["language"] = a
+	return b
 }
 
 func (this *PGDemo) Hello5() {

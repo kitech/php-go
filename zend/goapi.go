@@ -313,6 +313,13 @@ func set_php_array(ru reflect.Value, rv *unsafe.Pointer) {
 			switch son.Kind() {
 			case reflect.Array, reflect.Slice, reflect.Map:
 				temp := unsafe.Pointer(C.php_array_create_zval())
+				//php7 zval处理为栈内存
+				if nil == temp {
+					var tm C.zval
+					tmp := &tm
+					C.php7_array_init(tmp)
+					temp = unsafe.Pointer(tmp)
+				}
 				sonup := &temp
 				push_php_array(son, sonup, int64(i), 1)
 				C.php_array_add_next_index_zval(*rv, *sonup)
@@ -342,6 +349,12 @@ func set_php_array(ru reflect.Value, rv *unsafe.Pointer) {
 			switch son.Kind() {
 			case reflect.Array, reflect.Slice, reflect.Map:
 				temp := unsafe.Pointer(C.php_array_create_zval())
+				if nil == temp {
+					var tm C.zval
+					tmp := &tm
+					C.php7_array_init(tmp)
+					temp = unsafe.Pointer(tmp)
+				}
 				sonup := &temp
 				if 1 == mapKeyType {
 					ik := v.Int()

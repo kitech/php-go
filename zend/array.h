@@ -3,6 +3,9 @@
 //create zval
 zval* php_array_create_zval();
 
+//create php7 zval
+void php7_array_init(zval* zv);
+
 //$arr[int] = int;
 void php_array_add_index_long(void* arr, ulong idx, long n);
 //$arr[int] = 'string';
