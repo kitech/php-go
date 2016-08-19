@@ -131,6 +131,8 @@ func RetType2Php(fn interface{}) (rety int) {
 			rety = PHPTY_IS_LONG
 		case reflect.Ptr:
 			rety = PHPTY_IS_RESOURCE
+		case reflect.Slice, reflect.Array, reflect.Map:
+			rety = PHPTY_IS_ARRAY
 		default:
 			log.Panicln("wtf", fty.Out(0).String(), fty.Out(0).Kind().String())
 		}

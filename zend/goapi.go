@@ -2,6 +2,7 @@ package zend
 
 /*
 #include <stdlib.h>
+#include "array.h"
 */
 import "C"
 import "reflect"
@@ -294,6 +295,150 @@ func goapi_set_value(gv unsafe.Pointer, v uintptr, retpp *unsafe.Pointer) {
 	}
 }
 
+//export goapi_set_php_array
+func goapi_set_php_array(rp unsafe.Pointer, arr *unsafe.Pointer) {
+	ru := reflect.ValueOf(FROMCIP(rp))
+	set_php_array(ru, arr)
+}
+
+func set_php_array(ru reflect.Value, rv *unsafe.Pointer) {
+	switch ru.Kind() {
+	case reflect.Array, reflect.Slice:
+		n := ru.Len()
+		if n == 0 {
+			break
+		}
+		for i := 0; i < n; i++ {
+			son := ru.Index(i)
+			switch son.Kind() {
+			case reflect.Array, reflect.Slice, reflect.Map:
+				temp := unsafe.Pointer(C.php_array_create_zval())
+				//php7 zval处理为栈内存
+				if nil == temp {
+					var tm C.zval
+					tmp := &tm
+					C.php7_array_init(tmp)
+					temp = unsafe.Pointer(tmp)
+				}
+				sonup := &temp
+				push_php_array(son, sonup, int64(i), 1)
+				C.php_array_add_next_index_zval(*rv, *sonup)
+			default:
+				push_php_array(son, rv, int64(i), 1)
+			}
+		}
+	case reflect.Map:
+		t := ru.MapKeys()
+		if len(t) == 0 {
+			break
+		}
+		mk := t[0]
+		mapKeyType := 0
+		switch mk.Kind() {
+		case reflect.String:
+			mapKeyType = 2
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
+			reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16,
+			reflect.Uint32, reflect.Uint64:
+			mapKeyType = 1
+		default:
+			return
+		}
+		for _, v := range t {
+			son := ru.MapIndex(v)
+			switch son.Kind() {
+			case reflect.Array, reflect.Slice, reflect.Map:
+				temp := unsafe.Pointer(C.php_array_create_zval())
+				if nil == temp {
+					var tm C.zval
+					tmp := &tm
+					C.php7_array_init(tmp)
+					temp = unsafe.Pointer(tmp)
+				}
+				sonup := &temp
+				if 1 == mapKeyType {
+					ik := v.Int()
+					push_php_array(son, sonup, ik, mapKeyType)
+					C.php_array_add_index_zval(*rv, C.ulong(ik), *sonup)
+				} else {
+					ik := v.String()
+					push_php_array(son, sonup, ik, mapKeyType)
+					C.php_array_add_assoc_zval(*rv, C.CString(ik), *sonup)
+				}
+			default:
+				if 1 == mapKeyType {
+					push_php_array(son, rv, v.Int(), mapKeyType)
+				} else {
+					push_php_array(son, rv, v.String(), mapKeyType)
+				}
+			}
+		}
+	default:
+		panic("wft")
+	}
+}
+
+func push_php_array(ru reflect.Value, rv *unsafe.Pointer, key interface{}, at int) {
+	if rv == nil {
+		return
+	}
+	var stringKey string
+	var numberKey int64
+
+	if at == 1 {
+		numberKey = key.(int64)
+	} else {
+		stringKey = key.(string)
+	}
+
+	switch ru.Kind() {
+	case reflect.Array, reflect.Slice, reflect.Map:
+		set_php_array(ru, rv)
+	case reflect.Int64:
+		fallthrough
+	case reflect.Int8:
+		fallthrough
+	case reflect.Int32:
+		fallthrough
+	case reflect.Int:
+		fallthrough
+	case reflect.Int16:
+		if 1 == at {
+			C.php_array_add_index_long(*rv, C.ulong(numberKey), C.long(ru.Int()))
+		} else {
+			C.php_array_add_assoc_long(*rv, C.CString(stringKey), C.long(ru.Int()))
+		}
+	case reflect.Uint:
+		fallthrough
+	case reflect.Uint64:
+		fallthrough
+	case reflect.Uint32:
+		fallthrough
+	case reflect.Uint16:
+		fallthrough
+	case reflect.Uint8:
+		if 1 == at {
+			C.php_array_add_index_long(*rv, C.ulong(numberKey), C.long(ru.Uint()))
+		} else {
+			C.php_array_add_assoc_long(*rv, C.CString(stringKey), C.long(ru.Uint()))
+		}
+	case reflect.Float64:
+		fallthrough
+	case reflect.Float32:
+		if 1 == at {
+			C.php_array_add_index_double(*rv, C.ulong(numberKey), C.double(ru.Float()))
+		} else {
+			C.php_array_add_assoc_double(*rv, C.CString(stringKey), C.double(ru.Float()))
+		}
+	case reflect.String:
+		if 1 == at {
+			C.php_array_add_index_string(*rv, C.ulong(numberKey), C.CString(ru.String()))
+		} else {
+			C.php_array_add_assoc_string(*rv, C.CString(stringKey), C.CString(ru.String()))
+		}
+	}
+}
+
 //export goapi_get_value
 func goapi_get_value(gv unsafe.Pointer) uintptr {
 	giv := FROMCIP(gv)
@@ -338,22 +483,24 @@ func goapi_get_value(gv unsafe.Pointer) uintptr {
 	case reflect.Float64:
 	case reflect.Complex64:
 	case reflect.Complex128:
-	case reflect.Array:
 	case reflect.Chan:
 	case reflect.Func:
 	case reflect.Interface:
-	case reflect.Map:
 	case reflect.Ptr:
-	case reflect.Slice:
 	case reflect.String:
 		rv = uintptr(unsafe.Pointer(C.CString(giv.(string))))
+	case reflect.Map:
+	case reflect.Slice:
+	case reflect.Array:
 	case reflect.Struct:
 	case reflect.UnsafePointer:
 		rv = (uintptr)(giv.(unsafe.Pointer))
 	}
 
 	// 简洁方式
-	rvty := FROMCIP(goapi_type_r(int(reflect.Uintptr))).(reflect.Type)
+	/*rvty := FROMCIP(goapi_type_r(int(reflect.Uintptr))).(reflect.Type)
+	log.Println(rvty)
+	log.Println(goapi_type_r(int(reflect.Uintptr)))
 	if gvty.ConvertibleTo(rvty) {
 		rv = reflect.ValueOf(giv).Convert(rvty).Interface().(uintptr)
 	} else {
@@ -363,6 +510,6 @@ func goapi_get_value(gv unsafe.Pointer) uintptr {
 		default:
 			log.Panicln("can not convert:", giv, gvty.Kind(), gvty, rvty)
 		}
-	}
+	}*/
 	return rv
 }

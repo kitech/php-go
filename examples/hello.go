@@ -20,16 +20,40 @@ func (this *PGDemo) Hello1() int {
 	return rn
 }
 
-func (this *PGDemo) Hello2() {
-
+func (this *PGDemo) Hello2() string {
+	t := time.Now()
+	return t.String()
 }
 
-func (this *PGDemo) Hello3() {
-
+func (this *PGDemo) Hello3() [3][]int {
+	a := []int{1, 2, 3}
+	b := []int{4, 5, 6}
+	c := []int{7, 8, 9}
+	var d [3][]int
+	d[0] = a
+	d[1] = b
+	d[2] = c
+	return d
 }
 
-func (this *PGDemo) Hello4() {
+func (this *PGDemo) Hello4() map[string]map[string]map[int]string {
+	temp := make(map[int]string)
+	temp[0] = "zhangsan"
+	temp[1] = "hongkong"
+	temp[2] = "23"
 
+	temp1 := make(map[int]string)
+	temp1[0] = "list"
+	temp1[1] = "beijing"
+	temp1[2] = "26"
+
+	a := make(map[string]map[int]string)
+	a["go"] = temp
+	a["java"] = temp1
+
+	b := make(map[string]map[string]map[int]string)
+	b["language"] = a
+	return b
 }
 
 func (this *PGDemo) Hello5() {
