@@ -14,10 +14,10 @@ export CGO_CFLAGS := $(CFLAGS) $(CGO_CFLAGS)
 export CGO_LDFLAGS := $(LDFLAGS) $(CGO_LDFLAGS)
 
 all:
-	go install ./zend
-	go install ./phpgo
-	go build -v -linkshared -buildmode=c-shared -o hello.so examples/hello.go
-	# php -d extension=./hello.so examples/hello.php
+	# go install ./zend
+	# CGO_ENABLE=1 go install ./phpgo
+	CGO_ENABLE=1 go build -gcflags="-newexport=0 -ssa=0" -v -linkshared -buildmode=c-shared -o hello.so miniphpgo.go
+	# php -d extension=./hello.so miniphpgo.php
 
 clean:
 	rm -f ../../pkg/linux_amd64/zend.a
