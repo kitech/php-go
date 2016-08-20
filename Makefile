@@ -3,7 +3,7 @@ ifeq ($(PHPDIR),)
 	PHPDIR=/usr
 endif
 
-PHPCONFIG=$(PHPDIR)/bin/php-config
+PHPCONFIG=$(PHPDIR)/bin/php-config56
 
 export PATH := $(PHPDIR)/bin:$(PATH)
 export CFLAGS := $(shell export PATH=$(PATH) && $(PHPCONFIG) --includes)
@@ -16,7 +16,9 @@ export CGO_LDFLAGS := $(LDFLAGS) $(CGO_LDFLAGS)
 all:
 	# go install ./zend
 	# CGO_ENABLE=1 go install ./phpgo
-	CGO_ENABLE=1 go build -gcflags="-newexport=0 -ssa=0" -v -linkshared -buildmode=c-shared -o hello.so miniphpgo.go
+	# CGO_ENABLE=1 go build -gcflags="-newexport=0 -ssa=0" -v -buildmode=c-shared -o hello.so miniphpgo.go
+	CGO_ENABLE=1 go build -v -buildmode=c-shared -o hello.so miniso.go
+	gcc main.c -ldl
 	# php -d extension=./hello.so miniphpgo.php
 
 clean:
