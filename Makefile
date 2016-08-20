@@ -16,7 +16,7 @@ export CGO_LDFLAGS := $(LDFLAGS) $(CGO_LDFLAGS)
 all:
 	go install ./zend
 	go install ./phpgo
-	go build -v -linkshared -buildmode=c-shared -o hello.so examples/hello.go
+	go build -v -buildmode=c-shared -o hello.so examples/hello.go
 	# php -d extension=./hello.so examples/hello.php
 
 clean:
