@@ -434,8 +434,10 @@ void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *re
     if (NULL != this_ptr && IS_OBJECT == execute_data->This.u1.v.type) {
         op = execute_data->This.value.obj;
     }
-    printf("function handler called.%d, this=%p, atys=%s, op=%p\n",
-           cbid, this_ptr, phpgo_argtys[cbid], op);
+    zend_string *func_name = execute_data->func->common.function_name;
+    char *class_name = ZEND_FN_SCOPE_NAME(execute_data->func);
+    printf("function handler called.%d, this=%p, atys=%s, op=%p, func=%s, class=%s\n",
+           cbid, this_ptr, phpgo_argtys[cbid], op, ZSTR_VAL(func_name), class_name);
 
     void *argv[MAX_ARG_NUM] = {0};
     if (this_ptr == NULL) {
@@ -463,8 +465,14 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
         obj = &EG(objects_store).object_buckets[handle].bucket.obj;
         op = &obj->object;
     }
-    printf("function handler called.%d, this=%p, atys=%s, op=%p\n",
-           cbid, this_ptr, phpgo_argtys[cbid], op);
+    char *func_name = get_active_function_name();
+    char *class_name = NULL;
+    if (NULL != this_ptr) {
+        zend_class_entry *ce = zend_get_class_entry(this_ptr);
+        class_name = ce->name;
+    }
+    printf("function handler called.%d, this=%p, atys=%s, op=%p, func=%s, class=%s\n",
+           cbid, this_ptr, phpgo_argtys[cbid], op, func_name, class_name);
 
     void *argv[MAX_ARG_NUM] = {0};
     if (this_ptr == NULL) {

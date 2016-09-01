@@ -72,6 +72,7 @@ manual:
 - [x] improve php7 support
 - [ ] namespace support
 - [ ] multiple extension support
+- [ ] class member access support
 
 
 Contributing
