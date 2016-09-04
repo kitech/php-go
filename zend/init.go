@@ -1,7 +1,8 @@
 package zend
 
 /*
- */
+#include "szend.h"
+*/
 import "C"
 
 // import "unsafe"
@@ -25,10 +26,12 @@ func init() {
 }
 
 func initSingleThread() {
-	omp := runtime.GOMAXPROCS(0)
-	if omp > SINGLE_THREAD {
-		runtime.GOMAXPROCS(SINGLE_THREAD)
-		fmt.Printf("Adjust GOMAXPROCS %d => %d\n", omp, SINGLE_THREAD)
+	if C.gozend_iszts() == 0 {
+		omp := runtime.GOMAXPROCS(0)
+		if omp > SINGLE_THREAD {
+			runtime.GOMAXPROCS(SINGLE_THREAD)
+			fmt.Printf("Adjust GOMAXPROCS %d => %d\n", omp, SINGLE_THREAD)
+		}
 	}
 
 	rand.Seed(time.Now().UnixNano())

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 extern char* gozend_call_user_function_string(char *func_name, char *arg);
+extern int gozend_iszts();
 extern void gozend_efree(void *ptr);
 extern char *gozend_estrdup(char *str);
 extern char *gozend_estrndup(char *str, unsigned int lenght);

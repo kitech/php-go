@@ -73,6 +73,7 @@ manual:
 - [ ] namespace support
 - [ ] multiple extension support
 - [ ] class member access support
+- [ ] unlimited function/method/class count support
 
 
 Contributing
