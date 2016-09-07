@@ -4,6 +4,7 @@ ifeq ($(PHPDIR),)
 endif
 
 PHPCONFIG=$(PHPDIR)/bin/php-config
+# PHPCONFIG=$(PHPDIR)/bin/php-config55
 
 export PATH := $(PHPDIR)/bin:$(PATH)
 export CFLAGS := $(shell export PATH=$(PATH) && $(PHPCONFIG) --includes)

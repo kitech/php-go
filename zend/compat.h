@@ -3,6 +3,7 @@
 
 #include <zend.h>
 #include <zend_constants.h>
+#include <zend_modules.h>
 
 #ifdef ZEND_ENGINE_3
 #define Z_BVAL_PP(zv) Z_LVAL_P(*(zv))
@@ -22,7 +23,11 @@ typedef long zend_long;
 #define IS_UNDEF (IS_CALLABLE+3)
 
 #if !defined(IS_CONSTANT_AST)
+#if ZEND_MODULE_API_NO < 20121212  // < PHP 5.5
 #error "Maybe you are using not supported zend < 2.5.0 (PHP < 5.5.0)"
+#else
+#define IS_CONSTANT_AST (IS_CALLABLE+4)
+#endif
 #endif
 
 #endif
