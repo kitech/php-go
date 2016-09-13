@@ -167,10 +167,18 @@ static int phpgo_function_num_args(int cbid, int supply_num_args)
 }
 
 // PHP函数参数转换为go类型的参数
-static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval **zarg)
+static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *zarg)
 {
     int prmty = zty;
     void *rv = NULL;
+
+#ifdef ZEND_ENGINE_3
+    zval *conv_zarg = zarg;
+    zval *macro_zarg = zarg;
+#else
+    zval **conv_zarg = &zarg;
+    zval *macro_zarg = zarg;
+#endif
 
     if (ch == 's') {
         if (prmty != IS_STRING) {
@@ -178,9 +186,9 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
                        ch, type2name(prmty));
         }
 
-        convert_to_string_ex(zarg);
-        char *arg = Z_STRVAL_PP(zarg);
-        printf("arg%d(%c), %s(%d)\n", idx, ch, arg, Z_STRLEN_PP(zarg));
+        convert_to_string_ex(conv_zarg);
+        char *arg = Z_STRVAL_P(macro_zarg);
+        printf("arg%d(%c), %s(%d)\n", idx, ch, arg, Z_STRLEN_P(macro_zarg));
         goapi_new_value(GT_String, (uint64_t)arg, &rv);
     } else if (ch == 'l') {
         if (prmty != IS_LONG) {
@@ -188,57 +196,57 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
                        ch, type2name(prmty));
         }
 
-        convert_to_long_ex(zarg);
-        long arg = (long)Z_LVAL_PP(zarg);
+        convert_to_long_ex(conv_zarg);
+        long arg = (long)Z_LVAL_P(macro_zarg);
         printf("arg%d(%c), %d\n", idx, ch, arg);
         goapi_new_value(GT_Int64, (uint64_t)arg, &rv);
     } else if (ch == 'b') {
-        convert_to_boolean_ex(zarg);
-        zend_bool arg = (zend_bool)Z_BVAL_PP(zarg);
+        convert_to_boolean_ex(conv_zarg);
+        zend_bool arg = (zend_bool)Z_BVAL_P(macro_zarg);
         goapi_new_value(GT_Bool, (uint64_t)arg, &rv);
     } else if (ch == 'd') {
-        convert_to_double_ex(zarg);
-        double arg = (double)Z_DVAL_PP(zarg);
+        convert_to_double_ex(conv_zarg);
+        double arg = (double)Z_DVAL_P(macro_zarg);
         double* parg = calloc(1, sizeof(double));
-        *parg = (double)Z_DVAL_PP(zarg);
+        *parg = (double)Z_DVAL_P(macro_zarg);
         // argv[idx] = (void*)(ulong)arg;  // error
         // memcpy(&argv[idx], &arg, sizeof(argv[idx])); // ok
         // float32(uintptr(ax))
         goapi_new_value(GT_Float64, (uint64_t)parg, &rv);
     } else if (ch == 'a') {
-        if (Z_TYPE_PP(zarg) == IS_STRING) {
-            char *arg = Z_STRVAL_PP(zarg);
+        if (Z_TYPE_P(macro_zarg) == IS_STRING) {
+            char *arg = Z_STRVAL_P(macro_zarg);
             goapi_new_value(GT_String, (uint64_t)arg, &rv);
 #ifdef ZEND_ENGINE_3
-        } else if (Z_TYPE_PP(zarg) == _IS_BOOL) {
+        } else if (Z_TYPE_P(macro_zarg) == _IS_BOOL) {
 #else
-        } else if (Z_TYPE_PP(zarg) == IS_BOOL) {
+        } else if (Z_TYPE_P(macro_zarg) == IS_BOOL) {
 #endif
-            zend_bool arg = (zend_bool)Z_BVAL_PP(zarg);
+            zend_bool arg = (zend_bool)Z_BVAL_P(macro_zarg);
             goapi_new_value(GT_Bool, (uint64_t)arg, &rv);
-        } else if (Z_TYPE_PP(zarg) == IS_DOUBLE) {
+        } else if (Z_TYPE_P(macro_zarg) == IS_DOUBLE) {
             double* parg = calloc(1, sizeof(double));
-            *parg = (double)Z_DVAL_PP(zarg);
+            *parg = (double)Z_DVAL_P(macro_zarg);
             goapi_new_value(GT_Float64, (uint64_t)parg, &rv);
-        } else if (Z_TYPE_PP(zarg) == IS_LONG) {
-            long arg = (long)Z_LVAL_PP(zarg);
+        } else if (Z_TYPE_P(macro_zarg) == IS_LONG) {
+            long arg = (long)Z_LVAL_P(macro_zarg);
             goapi_new_value(GT_Int64, (uint64_t)arg, &rv);
-        } else if (Z_TYPE_PP(zarg) == IS_OBJECT) {
-            void *parg = (void*)zarg;
+        } else if (Z_TYPE_P(zarg) == IS_OBJECT) {
+            void *parg = (void*)macro_zarg;
             goapi_new_value(GT_UnsafePointer, (uint64_t)parg, &rv);
-        } else if (Z_TYPE_PP(zarg) == IS_RESOURCE) {
-            void *parg = (void*)zarg;
+        } else if (Z_TYPE_P(zarg) == IS_RESOURCE) {
+            void *parg = (void*)macro_zarg;
             goapi_new_value(GT_UnsafePointer, (uint64_t)parg, &rv);
         } else {
             printf("arg%d(%c), %s(%d) unsported to Any\n", idx, ch,
-                   type2name(Z_TYPE_PP(zarg)), Z_TYPE_PP(zarg));
+                   type2name(Z_TYPE_P(macro_zarg)), Z_TYPE_P(macro_zarg));
         }
 
         // TODO array/vector convert
     } else if (ch == 'v') {
-        HashTable *arr_hash = Z_ARRVAL_PP(zarg);
+        HashTable *arr_hash = Z_ARRVAL_P(macro_zarg);
         HashPosition pos;
-        zval **edata;
+        zval *edata = NULL;
 
         for (zend_hash_internal_pointer_reset_ex(arr_hash, &pos);
 #ifdef ZEND_ENGINE_3
@@ -248,8 +256,14 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
 #endif
              zend_hash_move_forward_ex(arr_hash, &pos)) {
 
+#ifdef ZEND_ENGINE_3
+            zval *conv_edata = edata;
+#else
+            zval **conv_edata = &edata;
+#endif
+
             if (rv == NULL) {
-                switch (Z_TYPE_PP(edata)) {
+                switch (Z_TYPE_P(edata)) {
                 case IS_LONG:
                     goapi_array_new(GT_Int64, &rv);
                     break;
@@ -259,15 +273,15 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
                 }
             }
 
-            switch (Z_TYPE_PP(edata)) {
+            switch (Z_TYPE_P(edata)) {
             case IS_LONG:
-                goapi_array_push(rv, (void*)Z_LVAL_PP(edata), &rv);
+                goapi_array_push(rv, (void*)Z_LVAL_P(edata), &rv);
                 break;
             default:
-                convert_to_string_ex(edata);
+                convert_to_string_ex(conv_edata);
                 printf("array idx(%d)=T(%d=%s, val=%s)\n", pos,
-                       Z_TYPE_PP(edata), type2name(Z_TYPE_PP(edata)), Z_STRVAL_PP(edata));
-                goapi_array_push(rv, Z_STRVAL_PP(edata), &rv);
+                       Z_TYPE_P(edata), type2name(Z_TYPE_P(edata)), Z_STRVAL_P(edata));
+                goapi_array_push(rv, Z_STRVAL_P(edata), &rv);
                 break;
             }
         }
@@ -277,9 +291,9 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         // 简化成string=>string映射吧
         goapi_map_new(&rv);
 
-        HashTable *arr_hash = Z_ARRVAL_PP(zarg);
+        HashTable *arr_hash = Z_ARRVAL_P(macro_zarg);
         HashPosition pos;
-        zval **edata;
+        zval *edata;
 
         for (zend_hash_internal_pointer_reset_ex(arr_hash, &pos);
 #ifdef ZEND_ENGINE_3
@@ -289,18 +303,25 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
 #endif
              zend_hash_move_forward_ex(arr_hash, &pos)) {
 
-            zval ekey = {0};
-            zval *pekey = &ekey;
+            zval vkey = {0};
+            zval *ekey = &vkey;
+            zend_hash_get_current_key_zval_ex(arr_hash, &vkey, &pos);
 
-            zend_hash_get_current_key_zval_ex(arr_hash, &ekey, &pos);
+#ifdef ZEND_ENGINE_3
+            zval *conv_ekey = ekey;
+            zval *conv_edata = edata;
+#else
+            zval **conv_ekey = &ekey;
+            zval **conv_edata = &edata;
+#endif
 
-            switch (Z_TYPE_PP(edata)) {
+            switch (Z_TYPE_P(edata)) {
             default:
-                convert_to_string_ex(&pekey);
-                convert_to_string_ex(edata);
-                printf("array idx(%d)=K(%s)=T(%d=%s, val=%s)\n", pos, Z_STRVAL_P(pekey),
-                       Z_TYPE_PP(edata), type2name(Z_TYPE_PP(edata)), Z_STRVAL_PP(edata));
-                goapi_map_add(rv, Z_STRVAL_P(pekey), Z_STRVAL_PP(edata));
+                convert_to_string_ex(conv_ekey);
+                convert_to_string_ex(conv_edata);
+                printf("array idx(%d)=K(%s)=T(%d=%s, val=%s)\n", pos, Z_STRVAL_P(ekey),
+                       Z_TYPE_P(edata), type2name(Z_TYPE_P(edata)), Z_STRVAL_P(edata));
+                goapi_map_add(rv, Z_STRVAL_P(ekey), Z_STRVAL_P(edata));
                 break;
             }
         }
@@ -320,7 +341,11 @@ static void phpgo_function_conv_args(int cbid, int supply_num_args, void *argv[]
     int num_args = phpgo_function_num_args(cbid, supply_num_args);
     // int supply_num_args = ZEND_NUM_ARGS();
 
+#ifdef ZEND_ENGINE_3
+    zval args[MAX_ARG_NUM] = {0};
+#else
     zval **args[MAX_ARG_NUM] = {0};
+#endif
     if (zend_get_parameters_array_ex(num_args, args) == FAILURE) {
         printf("param count error: %d\n", num_args);
         WRONG_PARAM_COUNT;
@@ -329,11 +354,16 @@ static void phpgo_function_conv_args(int cbid, int supply_num_args, void *argv[]
 
     // void *argv[MAX_ARG_NUM] = {0};
     printf("parse params: %d\n", num_args);
-    for (int idx = 0; idx < num_args-1; idx ++) {
-        printf("arg%d, type=%d\n", idx, Z_TYPE_PP(args[idx]));
-        int prmty = Z_TYPE_PP(args[idx]);
+    // function has not this arg, don't -1
+    for (int idx = 0; idx < num_args; idx ++) {
+#ifdef ZEND_ENGINE_3
+        zval *zarg = &args[idx];
+#else
+        zval *zarg = *(args[idx]);
+#endif
+        printf("arg%d, type=%d\n", idx, Z_TYPE_P(zarg));
+        int prmty = Z_TYPE_P(zarg);
         char ch = phpgo_argtys[cbid][idx];
-        zval **zarg = args[idx];
 
         argv[idx] = phpgo_function_conv_arg(cbid, idx, ch, prmty, zarg);
     }
@@ -346,7 +376,12 @@ static void phpgo_method_conv_args(int cbid, int supply_num_args, void *argv[])
     int num_args = phpgo_function_num_args(cbid, supply_num_args);
     // int supply_num_args = ZEND_NUM_ARGS();
 
+#ifdef ZEND_ENGINE_3
+    zval args[MAX_ARG_NUM] = {0};
+#else
     zval **args[MAX_ARG_NUM] = {0};
+#endif
+
     if (zend_get_parameters_array_ex(num_args-1, args) == FAILURE) {
         printf("param count error: %d\n", num_args);
         WRONG_PARAM_COUNT;
@@ -356,10 +391,15 @@ static void phpgo_method_conv_args(int cbid, int supply_num_args, void *argv[])
     // void *argv[MAX_ARG_NUM] = {0};
     printf("parse params: %d\n", num_args);
     for (int idx = 0; idx < num_args-1; idx ++) {
-        printf("arg%d, type=%d\n", idx, Z_TYPE_PP(args[idx]));
-        int prmty = Z_TYPE_PP(args[idx]);
+#ifdef ZEND_ENGINE_3
+        zval *zarg = &args[idx];
+#else
+        zval *zarg = *(args[idx]);
+#endif
+
+        printf("arg%d, type=%d\n", idx, Z_TYPE_P(zarg));
+        int prmty = Z_TYPE_P(zarg);
         char ch = phpgo_argtys[cbid][idx+1];
-        zval **zarg = args[idx];
 
         argv[idx] = phpgo_function_conv_arg(cbid, idx, ch, prmty, zarg);
     }
@@ -409,6 +449,11 @@ static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
     case IS_NULL:
         RETVAL_NULL();
         break;
+#ifdef ZEND_ENGINE_3
+    case IS_UNDEF:
+        RETVAL_NULL();
+        break;
+#endif
     case IS_RESOURCE:
         RETVAL_NULL();
         break;
@@ -425,12 +470,11 @@ static int phpgo_function_conv_ret(int cbid, void *p0, zval *return_value)
 }
 
 
-
 #ifdef ZEND_ENGINE_3
 void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *return_value)
 {
-    zval *this_ptr = &execute_data->This;
-    zend_object* op;
+    zval *this_ptr = &execute_data->This;  // always not null for php7
+    zend_object* op = NULL;
     if (NULL != this_ptr && IS_OBJECT == execute_data->This.u1.v.type) {
         op = execute_data->This.value.obj;
     }
@@ -440,10 +484,10 @@ void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *re
            cbid, this_ptr, phpgo_argtys[cbid], op, ZSTR_VAL(func_name), class_name);
 
     void *argv[MAX_ARG_NUM] = {0};
-    if (this_ptr == NULL) {
+    if (op == NULL) {
         phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
     } else {
-        phpgo_function_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
+        phpgo_method_conv_args(cbid, (ZEND_NUM_ARGS()), argv);
     }
 
     void* rv = NULL;
@@ -588,6 +632,11 @@ void phpgo_function_handler_dep(int cbid, int ht, zval *return_value, zval **ret
     case IS_NULL:
         RETVAL_NULL();
         break;
+#ifdef ZEND_ENGINE_3
+    case IS_UNDEF:
+        RETVAL_NULL();
+        break;
+#endif
     case IS_RESOURCE:
         RETVAL_NULL();
         break;

@@ -2,6 +2,7 @@
 
 // test run function
 foo_hello();
+foo_hello3(12, "abc", 3.5);
 
 // test run class method
 $d = new PGDemo();
