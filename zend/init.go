@@ -2,6 +2,7 @@ package zend
 
 /*
 #include "szend.h"
+#include "clog.h"
 */
 import "C"
 
@@ -22,6 +23,7 @@ const (
 //
 func init() {
 	initSingleThread()
+	initCLog()
 	initRawLog()
 }
 
@@ -46,4 +48,11 @@ func initRawLog() {
 	if len(oldPrefix) > 0 {
 		log.Printf("Switch log prefix: %s => [%s ]\n", oldPrefix, prefix)
 	}
+}
+
+func initCLog() {
+	C.clog_init_fd(C.STDOUT_FILENO, C.STDOUT_FILENO)
+	C.clog_init_fd(C.STDERR_FILENO, C.STDERR_FILENO)
+	C.dlog_set_level(C.STDOUT_FILENO, 0)
+	C.dlog_set_level(C.STDERR_FILENO, 0)
 }
