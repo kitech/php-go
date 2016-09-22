@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <assert.h>
 
 /**
  *  PHP includes
@@ -12,6 +13,7 @@
 #include <zend_ini.h>
 #include <SAPI.h>
 #include <zend_hash.h>
+#include <zend_API.h>
 
 #ifdef ZTS
 #include "TSRM.h"
@@ -21,6 +23,8 @@
 
 // #include "sztypes.h"
 #include "../zend/goapi.h"
+#include "../zend/clog.h"
+#include "objectmap.h"
 
 
 #define GLOBAL_VCLASS_ID 0
@@ -354,6 +358,7 @@ static void phpgo_function_conv_args(int cbid, int supply_num_args, void *argv[]
 
     // void *argv[MAX_ARG_NUM] = {0};
     printf("parse params: %d\n", num_args);
+    dlog_debug("parse params: %d\n", num_args);
     // function has not this arg, don't -1
     for (int idx = 0; idx < num_args; idx ++) {
 #ifdef ZEND_ENGINE_3
@@ -482,6 +487,11 @@ void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *re
     char *class_name = ZEND_FN_SCOPE_NAME(execute_data->func);
     printf("function handler called.%d, this=%p, atys=%s, op=%p, func=%s, class=%s\n",
            cbid, this_ptr, phpgo_argtys[cbid], op, ZSTR_VAL(func_name), class_name);
+
+    zend_function_entry *fe = phpgo_function_map_get(class_name, ZSTR_VAL(func_name));
+    int cbid_dyn = phpgo_callback_map_get(class_name, ZSTR_VAL(func_name));
+    dlog_debug("mapget: %p, %d=?%d\n", fe, cbid_dyn, cbid);
+    cbid = cbid_dyn; // for transition
 
     void *argv[MAX_ARG_NUM] = {0};
     if (op == NULL) {
@@ -700,6 +710,9 @@ int zend_add_function(int cidx, int fidx, int cbid, char *name, char *atys, int 
     phpgo_argtys[cbid] = atys == NULL ? NULL : strdup(atys);
     phpgo_retys[cbid] = rety;
 
+    phpgo_function_map_add(NULL, name, fe);
+    phpgo_callback_map_add(NULL, name, cbid);
+
     return 0;
 }
 
@@ -708,6 +721,8 @@ int zend_add_class(int cidx, char *cname)
     zend_class_entry *ce = &g_centries[cidx];
     INIT_CLASS_ENTRY_EX((*ce), cname, strlen(cname), g_funcs[cidx]);
     zend_register_internal_class(ce TSRMLS_CC);
+
+    phpgo_class_map_add(cname, ce);
 
     return 0;
 }
@@ -729,6 +744,9 @@ int zend_add_method(int cidx, int fidx, int cbid, char *cname, char *mname, char
 
     phpgo_argtys[cbid] = atys == NULL ? NULL : strdup(atys);
     phpgo_retys[cbid] = rety;
+
+    phpgo_function_map_add(cname, mname, fe);
+    phpgo_callback_map_add(cname, mname, cbid);
 
     return 0;
 }
