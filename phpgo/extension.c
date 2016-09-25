@@ -357,7 +357,6 @@ static void phpgo_function_conv_args(int cbid, int supply_num_args, void *argv[]
     }
 
     // void *argv[MAX_ARG_NUM] = {0};
-    printf("parse params: %d\n", num_args);
     dlog_debug("parse params: %d\n", num_args);
     // function has not this arg, don't -1
     for (int idx = 0; idx < num_args; idx ++) {
@@ -394,7 +393,7 @@ static void phpgo_method_conv_args(int cbid, int supply_num_args, void *argv[])
     }
 
     // void *argv[MAX_ARG_NUM] = {0};
-    printf("parse params: %d\n", num_args);
+    dlog_debug("parse params: %d\n", num_args);
     for (int idx = 0; idx < num_args-1; idx ++) {
 #ifdef ZEND_ENGINE_3
         zval *zarg = &args[idx];
@@ -504,12 +503,22 @@ void phpgo_function_handler7(int cbid, zend_execute_data *execute_data, zval *re
     on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
                                  argv[2], argv[3], argv[4], argv[5],
                                  argv[6], argv[7], argv[8], argv[9], &rv, (void*) op);
-    printf("inout ret:%p\n", rv);
+    dlog_debug("inout ret:%p\n", rv);
     phpgo_function_conv_ret(cbid, rv, return_value);
 }
 
+void phpgo_function_handler(zend_execute_data *execute_data, zval *return_value)
+{
+    zend_string *func_name = execute_data->func->common.function_name;
+    char *class_name = ZEND_FN_SCOPE_NAME(execute_data->func);
+
+    int cbid = phpgo_callback_map_get(class_name, ZSTR_VAL(func_name));
+
+    phpgo_function_handler7(cbid, execute_data, return_value);
+}
+
 #else  // php < 7.0
-void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_value_ptr,
+void phpgo_function_handler5(int cbid, int ht, zval *return_value, zval **return_value_ptr,
                             zval *this_ptr, int return_value_used TSRMLS_DC)
 {
     void* op = NULL;
@@ -519,8 +528,8 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
         obj = &EG(objects_store).object_buckets[handle].bucket.obj;
         op = &obj->object;
     }
-    char *func_name = get_active_function_name();
-    char *class_name = NULL;
+    const char *func_name = get_active_function_name();
+    const char *class_name = NULL;
     if (NULL != this_ptr) {
         zend_class_entry *ce = zend_get_class_entry(this_ptr);
         class_name = ce->name;
@@ -539,8 +548,29 @@ void phpgo_function_handler(int cbid, int ht, zval *return_value, zval **return_
     on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
                                  argv[2], argv[3], argv[4], argv[5],
                                  argv[6], argv[7], argv[8], argv[9], &rv, (void*) op);
-    printf("inout ret:%p\n", rv);
+    dlog_debug("inout ret:%p\n", rv);
     phpgo_function_conv_ret(cbid, rv, return_value);
+}
+
+void phpgo_function_handler(int ht, zval *return_value, zval **return_value_ptr,
+                             zval *this_ptr, int return_value_used TSRMLS_DC)
+{
+    const char *func_name = get_active_function_name(TSRMLS_C);
+    const char *class_name = NULL;
+    if (NULL != this_ptr) {
+        zend_class_entry *ce = zend_get_class_entry(this_ptr);
+        class_name = ce->name;
+    }
+
+    // object maybe destruct after script execute finished, and out of executed file scope
+    if (!zend_is_executing()) {
+        if (func_name == NULL && class_name != NULL) {
+            func_name = "__destruct";
+        }
+    }
+    int cbid = phpgo_callback_map_get(class_name, func_name);
+
+    phpgo_function_handler5(cbid, ht, return_value, return_value_ptr, this_ptr, return_value_used);
 }
 
 void phpgo_function_handler_dep(int cbid, int ht, zval *return_value, zval **return_value_ptr,
@@ -559,8 +589,8 @@ void phpgo_function_handler_dep(int cbid, int ht, zval *return_value, zval **ret
         return;
     }
 
+    dlog_debug("parse params: %d\n", num_args);
     void *argv[10] = {0};
-    printf("parse params: %d\n", num_args);
     for (int idx = 0; idx < num_args; idx ++) {
         printf("arg%d, type=%d\n", idx, Z_TYPE_PP(args[idx]));
         int prmty = Z_TYPE_PP(args[idx]);
@@ -657,54 +687,15 @@ void phpgo_function_handler_dep(int cbid, int ht, zval *return_value, zval **ret
     }
     // TODO cleanup?
 }
-#endif
-
-static void (*phpgo_handlers[MCN*MFN])(INTERNAL_FUNCTION_PARAMETERS) = {0};
-
-#ifdef ZEND_ENGINE_3
-#define PHPGO_FH_DECL(no) \
-    void phpgo_function_handler_##no(INTERNAL_FUNCTION_PARAMETERS) {     \
-        phpgo_function_handler7(no, execute_data, return_value);         \
-    }
-#else
-#define PHPGO_FH_DECL(no)                                               \
-    void phpgo_function_handler_##no(INTERNAL_FUNCTION_PARAMETERS) {    \
-        phpgo_function_handler(no, ht, return_value, return_value_ptr, this_ptr, return_value_used); \
-    }
-#endif
-
-#define PHPGO_FH_ADD(no) phpgo_handlers[no] = phpgo_function_handler_##no
-
-// PHPGO_FH_DECL(0); PHPGO_FH_DECL(1); PHPGO_FH_DECL(2); PHPGO_FH_DECL(3); PHPGO_FH_DECL(4);
-// PHPGO_FH_DECL(128); PHPGO_FH_DECL(129); PHPGO_FH_DECL(130); PHPGO_FH_DECL(131); PHPGO_FH_DECL(132);
-#include "extension_syms.txt"
-static int init_phpgo_handlers() {
-    // phpgo_handlers[0] = phpgo_function_handler_0;
-    // PHPGO_FH_ADD(0); PHPGO_FH_ADD(1); PHPGO_FH_ADD(2); PHPGO_FH_ADD(3); PHPGO_FH_ADD(4);
-    // PHPGO_FH_ADD(128); PHPGO_FH_ADD(129); PHPGO_FH_ADD(130); PHPGO_FH_ADD(131); PHPGO_FH_ADD(132);
-    #include "extension_adds.txt"
-    return 1;
-}
-static int init_phpgo_handlers_indicator = 0;
+#endif  // #ifdef ZEND_ENGINE_3
 
 int zend_add_function(int cidx, int fidx, int cbid, char *name, char *atys, int rety)
 {
-    // TODO thread?
-    if (init_phpgo_handlers_indicator == 0) {
-        init_phpgo_handlers_indicator = 1;
-        init_phpgo_handlers();
-    }
-
-    printf("add func %s at %d:%d=%d, %p, atys=%s, rety=%d\n",
-           name, cidx, fidx, cbid, phpgo_handlers[cbid], atys, rety);
-
-    if (phpgo_handlers[cbid] == NULL) {
-        assert(phpgo_handlers[cbid] != NULL);
-        return -1;
-    }
+    printf("add func %s at %d:%d=%d, atys=%s, rety=%d\n",
+           name, cidx, fidx, cbid, atys, rety);
 
     zend_function_entry *fe = &g_funcs[cidx][fidx];
-    zend_function_entry e = {strdup(name), phpgo_handlers[cbid], NULL, 0, 0};
+    zend_function_entry e = {strdup(name), phpgo_function_handler, NULL, 0, 0};
     memcpy(fe, &e, sizeof(e));
 
     phpgo_argtys[cbid] = atys == NULL ? NULL : strdup(atys);
@@ -729,16 +720,11 @@ int zend_add_class(int cidx, char *cname)
 
 int zend_add_method(int cidx, int fidx, int cbid, char *cname, char *mname, char *atys, int rety)
 {
-    printf("add mth %s::%s at %d:%d=%d, %p, atys=%s, rety=%d\n",
-           cname, mname, cidx, fidx, cbid, phpgo_handlers[cbid], atys, rety);
-
-    if (phpgo_handlers[cbid] == NULL) {
-        assert(phpgo_handlers[cbid] != NULL);
-        return -1;
-    }
+    printf("add mth %s::%s at %d:%d=%d, atys=%s, rety=%d\n",
+           cname, mname, cidx, fidx, cbid, atys, rety);
 
     zend_function_entry *fe = &g_funcs[cidx][fidx];
-    zend_function_entry e = {strdup(mname), phpgo_handlers[cbid], NULL, 0,
+    zend_function_entry e = {strdup(mname), phpgo_function_handler, NULL, 0,
                              0 | ZEND_ACC_PUBLIC};
     memcpy(fe, &e, sizeof(e));
 

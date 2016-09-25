@@ -12,3 +12,9 @@ $r2 = $d->Hello3();
 print_r($r2);
 $r3 = $d->Hello4();
 print_r($r3);
+
+// test for executing scope destruct and execute finished scope destruct
+if (rand() % 2 == 1) {
+    $d = null;
+}
+
