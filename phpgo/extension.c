@@ -34,8 +34,19 @@
 
 // TODO PHP7支持
 static zend_function_entry g_funcs[MCN][MFN] = {0};
-static zend_class_entry g_centries[MCN] = {0};
+static zend_class_entry **g_classes = NULL;
+static int g_class_count = 0;
 static zend_module_entry g_entry = {0};
+
+struct phpgo_callback_signature {
+    char argtys[10];
+    int retys;
+    int varidict;
+};
+
+static char *phpgo_argtys[MCN*MFN] = {0};
+static int  phpgo_retys[MCN*MFN] = {0};
+static struct phpgo_callback_signature phpgo_cbsigs[MCN*MFN] = {0};
 
 // ZEND_DECLARE_MODULE_GLOBALS(phpgo);
 // static void init_globals(zend_phpgo_globals *globals) {}
@@ -112,15 +123,6 @@ int phpgo_get_module_number() {
     return g_entry.module_number;
 }
 
-struct phpgo_callback_signature {
-    char argtys[10];
-    int retys;
-    int varidict;
-};
-
-static char *phpgo_argtys[MCN*MFN] = {0};
-static int  phpgo_retys[MCN*MFN] = {0};
-static struct phpgo_callback_signature phpgo_cbsigs[MCN*MFN] = {0};
 
 // TODO 支持php callable类型，方便实现回调？
 // TODO 支持php array类型？有点复杂。
@@ -709,7 +711,25 @@ int zend_add_function(int cidx, int fidx, int cbid, char *name, char *atys, int 
 
 int zend_add_class(int cidx, char *cname)
 {
-    zend_class_entry *ce = &g_centries[cidx];
+    if (phpgo_class_map_get(cname) != NULL) {
+        dlog_debug("Class %s already added.", cname);
+        return -1;
+    }
+
+    // TODO thread safe?
+    if (g_class_count == 0) {
+        g_classes = (zend_class_entry**)calloc(2, sizeof(zend_class_entry**));
+        g_classes[0] = NULL;
+        g_classes[1] = (zend_class_entry*)calloc(1, sizeof(zend_class_entry));
+        g_class_count += 2;
+    } else {
+        g_classes = (zend_class_entry**)realloc(g_classes, sizeof(zend_class_entry**) * (g_class_count + 1));
+        g_classes[g_class_count] = (zend_class_entry*)calloc(1, sizeof(zend_class_entry));
+        g_class_count += 1;
+    }
+    assert(cidx == g_class_count);
+
+    zend_class_entry *ce = g_classes[cidx];
     INIT_CLASS_ENTRY_EX((*ce), cname, strlen(cname), g_funcs[cidx]);
     zend_register_internal_class(ce TSRMLS_CC);
 

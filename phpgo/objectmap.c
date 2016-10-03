@@ -79,6 +79,10 @@ zend_class_entry* phpgo_class_map_get(const char *class_name)
 {
     phpgo_class_map *m = NULL;
     UTHASH_FIND_STR(g_classes_map, class_name, m);
+    if (m == NULL) {
+        return NULL;
+    }
+
     return m->ce;
 }
 
