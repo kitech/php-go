@@ -37,6 +37,12 @@ typedef struct _phpgo_callback_map {
     UT_hash_handle hh;
 } phpgo_callback_map;
 
+struct _phpgo_object_map {
+    const char *name;
+    void *obj;
+    UT_hash_handle hh;
+};
+
 static phpgo_function_map *g_funcs_map = NULL;
 static phpgo_class_map *g_classes_map = NULL;
 static phpgo_callback_map *g_callbacks_map = NULL;
@@ -107,6 +113,32 @@ int phpgo_callback_map_get(const char *class_name, const char *func_name)
         return -1;
     }
     return m->cbid;
+}
+
+
+phpgo_object_map* phpgo_object_map_new() {
+    phpgo_object_map *om = (phpgo_object_map*)malloc(sizeof(phpgo_object_map));
+    return om;
+}
+
+void phpgo_object_map_add(phpgo_object_map* om, const char *name, void* obj)
+{
+    phpgo_object_map *m = (phpgo_object_map*)malloc(sizeof(phpgo_object_map));
+    char *key = strdup(name);
+    m->name = key;
+    m->obj = obj;
+    UTHASH_ADD_KEYPTR(hh, om, key, strlen(key), m);
+}
+
+void* phpgo_object_map_get(phpgo_object_map* om, const char *name)
+{
+    phpgo_object_map *m = NULL;
+    const char *key = name;
+    UTHASH_FIND_STR(om, key, m);
+    if (m == NULL) {
+        return NULL;
+    }
+    return m->obj;
 }
 
 
