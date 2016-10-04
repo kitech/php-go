@@ -29,41 +29,46 @@
 
 #include "class.h"
 
-
 struct _phpgo_class_entry {
     zend_class_entry *ce;
-    phpgo_function_entry **fes;
+    // phpgo_function_entry **fes;
     const char *class_name;
-    int func_count;
 
     phpgo_object_map *fmap;
+    zend_function_entry *fes;
 };
 
 phpgo_class_entry* phpgo_class_new(const char *class_name) {
     phpgo_class_entry* pce = (phpgo_class_entry*)calloc(1, sizeof(phpgo_class_entry));
     memset(pce, 0, sizeof(phpgo_class_entry));
     pce->ce = (zend_class_entry*)calloc(1, sizeof(zend_class_entry));
-    pce->fes = NULL;
     pce->class_name = class_name;
     pce->fmap = NULL;
+
     return pce;
 }
 
 void phpgo_class_method_add(phpgo_class_entry* pce, const char *func_name) {
-    int curr_index = -1;
+    phpgo_function_entry* pfe = phpgo_function_new(func_name);
+    phpgo_object_map_add(&pce->fmap, func_name, pfe);
 
-    if (pce->fes == NULL) {
-        pce->fes = (phpgo_function_entry**)calloc(1, 1 * sizeof(phpgo_function_entry*));
-        pce->func_count = 1;
+    int count = phpgo_object_map_count(pce->fmap);
+    if (count == 1) {
+        pce->fes = (zend_function_entry*)calloc(count + 1, sizeof(zend_function_entry));
     } else {
-        pce->func_count += 1;
-        pce->fes = (phpgo_function_entry**)realloc(pce->fes, pce->func_count * sizeof(phpgo_function_entry*));
+        pce->fes = (zend_function_entry*)realloc(pce->fes, (count + 1) * sizeof(zend_function_entry));
     }
+    memset(&pce->fes[count], 0, sizeof(zend_function_entry));
+    memcpy(&pce->fes[count-1], phpgo_function_get(pfe), sizeof(zend_function_entry));
+    pce->ce->info.internal.builtin_functions = pce->fes;
+}
 
-    curr_index = pce->func_count - 1;
-    pce->fes[curr_index] = phpgo_function_new(func_name);
+zend_class_entry* phpgo_class_get(phpgo_class_entry* pce) {
+    return pce->ce;
+}
 
-    phpgo_object_map_add(pce->fmap, func_name, pce->fes[curr_index]);
+zend_function_entry* phpgo_class_get_funcs(phpgo_class_entry* pce) {
+    return (zend_function_entry*)pce->ce->info.internal.builtin_functions;
 }
 
 phpgo_function_entry* phpgo_class_method_get(phpgo_class_entry* pce, const char *func_name) {
@@ -72,6 +77,10 @@ phpgo_function_entry* phpgo_class_method_get(phpgo_class_entry* pce, const char 
         return pfe;
     }
     return NULL;
+}
+
+int phpgo_class_method_count(phpgo_class_entry* pce) {
+    return phpgo_object_map_count(pce->fmap);
 }
 
 // function operations
@@ -101,6 +110,7 @@ phpgo_function_entry *phpgo_function_new(const char *func_name) {
 
 int phpgo_function_delete(phpgo_function_entry *pfe) {
     free((void*)(pfe->fe->fname));
+    free(pfe->fe);
     free(pfe);
     return 0;
 }

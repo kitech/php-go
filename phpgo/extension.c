@@ -25,8 +25,9 @@
 #include "../zend/goapi.h"
 #include "../zend/clog.h"
 #include "objectmap.h"
+#include "class.h"
 
-
+#define GLOBAL_VCLASS_NAME "_PHPGO_GLOBAL_"
 #define GLOBAL_VCLASS_ID 0
 #define MAX_ARG_NUM 10
 #define MFN 128  // MAX_FUNC_NUM
@@ -34,9 +35,8 @@
 
 // TODO PHP7支持
 static zend_function_entry g_funcs[MCN][MFN] = {0};
-static zend_class_entry **g_classes = NULL;
-static int g_class_count = 0;
 static zend_module_entry g_entry = {0};
+static phpgo_object_map *g_class_map = NULL;
 
 struct phpgo_callback_signature {
     char argtys[10];
@@ -711,28 +711,35 @@ int zend_add_function(int cidx, int fidx, int cbid, char *name, char *atys, int 
 
 int zend_add_class(int cidx, char *cname)
 {
-    if (phpgo_class_map_get(cname) != NULL) {
+    if (phpgo_object_map_get(g_class_map, cname) == NULL) {
+        dlog_debug("Class %s not added.", cname);
+        return -1;
+    }
+
+    phpgo_class_entry* pce = phpgo_object_map_get(g_class_map, cname);
+    zend_class_entry *ce = (zend_class_entry*)phpgo_class_get(pce);
+    INIT_CLASS_ENTRY_EX((*ce), cname, strlen(cname), phpgo_class_get_funcs(pce));
+    zend_register_internal_class(ce TSRMLS_CC);
+
+    phpgo_class_map_add(cname, ce);
+
+    return 0;
+}
+
+int zend_add_class_not_register(int cidx, char *cname)
+{
+    if (phpgo_object_map_get(g_class_map, cname) != NULL) {
         dlog_debug("Class %s already added.", cname);
         return -1;
     }
 
     // TODO thread safe?
-    if (g_class_count == 0) {
-        g_classes = (zend_class_entry**)calloc(2, sizeof(zend_class_entry**));
-        g_classes[0] = NULL;
-        g_classes[1] = (zend_class_entry*)calloc(1, sizeof(zend_class_entry));
-        g_class_count += 2;
-    } else {
-        g_classes = (zend_class_entry**)realloc(g_classes, sizeof(zend_class_entry**) * (g_class_count + 1));
-        g_classes[g_class_count] = (zend_class_entry*)calloc(1, sizeof(zend_class_entry));
-        g_class_count += 1;
-    }
-    assert(cidx == g_class_count);
+    phpgo_class_entry* pce = phpgo_class_new(cname);
+    phpgo_object_map_add(&g_class_map, cname, pce);
+    int class_count = phpgo_object_map_count(g_class_map);
+    assert(cidx == class_count);
 
-    zend_class_entry *ce = g_classes[cidx];
-    INIT_CLASS_ENTRY_EX((*ce), cname, strlen(cname), g_funcs[cidx]);
-    zend_register_internal_class(ce TSRMLS_CC);
-
+    zend_class_entry *ce = (zend_class_entry*)phpgo_class_get(pce);
     phpgo_class_map_add(cname, ce);
 
     return 0;
@@ -743,10 +750,15 @@ int zend_add_method(int cidx, int fidx, int cbid, char *cname, char *mname, char
     printf("add mth %s::%s at %d:%d=%d, atys=%s, rety=%d\n",
            cname, mname, cidx, fidx, cbid, atys, rety);
 
-    zend_function_entry *fe = &g_funcs[cidx][fidx];
-    zend_function_entry e = {strdup(mname), phpgo_function_handler, NULL, 0,
-                             0 | ZEND_ACC_PUBLIC};
-    memcpy(fe, &e, sizeof(e));
+    phpgo_class_entry* pce = (phpgo_class_entry*)phpgo_object_map_get(g_class_map, cname);
+    if (pce == NULL) {
+        dlog_debug("pce empty: %d", phpgo_object_map_count(g_class_map));
+        zend_add_class_not_register(cidx, cname);
+        pce = (phpgo_class_entry*)phpgo_object_map_get(g_class_map, cname);
+    }
+    phpgo_class_method_add(pce, mname);
+    phpgo_function_entry* pfe = phpgo_class_method_get(pce, mname);
+    zend_function_entry* fe = (zend_function_entry*)phpgo_function_get(pfe);
 
     phpgo_argtys[cbid] = atys == NULL ? NULL : strdup(atys);
     phpgo_retys[cbid] = rety;
@@ -757,4 +769,4 @@ int zend_add_method(int cidx, int fidx, int cbid, char *cname, char *mname, char
     return 0;
 }
 
-// TODO PHP class instance destroyed
+

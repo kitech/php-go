@@ -15,6 +15,9 @@ typedef struct _phpgo_class_entry phpgo_class_entry;
 phpgo_class_entry* phpgo_class_new(const char *class_name);
 void phpgo_class_method_add(phpgo_class_entry* pce, const char *func_name);
 phpgo_function_entry* phpgo_class_method_get(phpgo_class_entry* pce, const char *func_name);
+zend_class_entry* phpgo_class_get(phpgo_class_entry* pce);
+zend_function_entry* phpgo_class_get_funcs(phpgo_class_entry* pce);
+int phpgo_class_method_count(phpgo_class_entry* pce);
 
 #endif
 

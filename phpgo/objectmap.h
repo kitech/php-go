@@ -20,8 +20,9 @@ void phpgo_callback_map_add(const char *class_name, const char *func_name, int c
 int phpgo_callback_map_get(const char *class_name, const char *func_name);
 
 phpgo_object_map *phpgo_object_map_new();
-void phpgo_object_map_add(phpgo_object_map* om, const char *name, void* obj);
+void phpgo_object_map_add(phpgo_object_map** om, const char *name, void* obj);
 void* phpgo_object_map_get(phpgo_object_map* om, const char *name);
+int phpgo_object_map_count(phpgo_object_map* om);
 
 #endif
 

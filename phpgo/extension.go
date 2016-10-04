@@ -175,15 +175,15 @@ func AddClass(name string, ctor interface{}) error {
 
 	if _, has := gext.classes[name]; !has {
 		cidx := len(gext.classes)
-
 		var n C.int = 0
+
+		// must add begin add class
 		if int(n) == 0 {
 			addCtor(cidx, name, ctor)
 			addDtor(cidx, name, ctor)
 			addMethods(cidx, name, ctor)
 		}
 
-		fmt.Println("add class:", name, cidx)
 		cname := C.CString(name)
 		n = C.zend_add_class(C.int(cidx), cname)
 		C.free(unsafe.Pointer(cname))
@@ -191,6 +191,7 @@ func AddClass(name string, ctor interface{}) error {
 		if int(n) == 0 {
 			gext.classes[name] = cidx
 		}
+
 		return nil
 	}
 

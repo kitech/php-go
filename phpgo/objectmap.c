@@ -121,13 +121,13 @@ phpgo_object_map* phpgo_object_map_new() {
     return om;
 }
 
-void phpgo_object_map_add(phpgo_object_map* om, const char *name, void* obj)
+void phpgo_object_map_add(phpgo_object_map** om, const char *name, void* obj)
 {
     phpgo_object_map *m = (phpgo_object_map*)malloc(sizeof(phpgo_object_map));
     char *key = strdup(name);
     m->name = key;
     m->obj = obj;
-    UTHASH_ADD_KEYPTR(hh, om, key, strlen(key), m);
+    UTHASH_ADD_KEYPTR(hh, *om, key, strlen(key), m);
 }
 
 void* phpgo_object_map_get(phpgo_object_map* om, const char *name)
@@ -141,4 +141,7 @@ void* phpgo_object_map_get(phpgo_object_map* om, const char *name)
     return m->obj;
 }
 
+int phpgo_object_map_count(phpgo_object_map* om) {
+    return UTHASH_COUNT(om);
+}
 
