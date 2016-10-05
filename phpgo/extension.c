@@ -28,13 +28,12 @@
 #include "class.h"
 
 #define GLOBAL_VCLASS_NAME "_PHPGO_GLOBAL_"
-#define GLOBAL_VCLASS_ID 0
+// #define GLOBAL_VCLASS_ID 0
 #define MAX_ARG_NUM 10
 #define MFN 128  // MAX_FUNC_NUM
 #define MCN 128  // MAX_CLASS_NUM
 
 // TODO PHP7支持
-static zend_function_entry g_funcs[MCN][MFN] = {0};
 static zend_module_entry g_entry = {0};
 static phpgo_object_map *g_class_map = NULL;
 
@@ -102,10 +101,14 @@ void phpgo_register_init_functions(void *module_startup_func, void *module_shutd
 // TODO module version from args
 // TODO module startup/shutdown... function from args, or set seperator
 void *phpgo_get_module(char *name, char *version) {
+    char *cname = (char*)GLOBAL_VCLASS_NAME;
+    phpgo_class_entry* pce = (phpgo_class_entry*)phpgo_object_map_get(g_class_map, cname);
+    zend_function_entry* funcs = phpgo_class_get_funcs(pce);
+
     zend_module_entry te = {
         STANDARD_MODULE_HEADER,
         name, // "phpgo",
-        g_funcs[GLOBAL_VCLASS_ID],
+        funcs, // g_funcs[GLOBAL_VCLASS_ID],
         phpgo_module_startup_func,
         phpgo_module_shutdown_func,
         phpgo_request_startup_func,		/* Replace with NULL if there's nothing to do at request start */
@@ -691,23 +694,6 @@ void phpgo_function_handler_dep(int cbid, int ht, zval *return_value, zval **ret
 }
 #endif  // #ifdef ZEND_ENGINE_3
 
-int zend_add_function(int cidx, int fidx, int cbid, char *name, char *atys, int rety)
-{
-    printf("add func %s at %d:%d=%d, atys=%s, rety=%d\n",
-           name, cidx, fidx, cbid, atys, rety);
-
-    zend_function_entry *fe = &g_funcs[cidx][fidx];
-    zend_function_entry e = {strdup(name), phpgo_function_handler, NULL, 0, 0};
-    memcpy(fe, &e, sizeof(e));
-
-    phpgo_argtys[cbid] = atys == NULL ? NULL : strdup(atys);
-    phpgo_retys[cbid] = rety;
-
-    phpgo_function_map_add(NULL, name, fe);
-    phpgo_callback_map_add(NULL, name, cbid);
-
-    return 0;
-}
 
 int zend_add_class(int cidx, char *cname)
 {
@@ -744,6 +730,39 @@ int zend_add_class_not_register(int cidx, char *cname)
 
     return 0;
 }
+
+int zend_add_function(int cidx, int fidx, int cbid, char *name, char *atys, int rety)
+{
+    printf("add func %s at %d:%d=%d, atys=%s, rety=%d\n",
+           name, cidx, fidx, cbid, atys, rety);
+
+    int cnlen = strlen(GLOBAL_VCLASS_NAME);
+    char *cname = GLOBAL_VCLASS_NAME;
+    char *mname = name;
+
+    phpgo_class_entry* pce = (phpgo_class_entry*)phpgo_object_map_get(g_class_map, cname);
+    if (pce == NULL) {
+        dlog_debug("pce empty: %d for %s", phpgo_object_map_count(g_class_map), cname);
+        zend_add_class_not_register(cidx, cname);
+        pce = (phpgo_class_entry*)phpgo_object_map_get(g_class_map, cname);
+    }
+    phpgo_class_method_add(pce, mname);
+    phpgo_function_entry* pfe = phpgo_class_method_get(pce, mname);
+    zend_function_entry* fe = (zend_function_entry*)phpgo_function_get(pfe);
+
+    zend_function_entry e = {strdup(name), phpgo_function_handler, NULL, 0, 0};
+    memcpy(fe, &e, sizeof(e));
+    (&g_entry)->functions = phpgo_class_get_funcs(pce);
+
+    phpgo_argtys[cbid] = atys == NULL ? NULL : strdup(atys);
+    phpgo_retys[cbid] = rety;
+
+    phpgo_function_map_add(NULL, name, fe);
+    phpgo_callback_map_add(NULL, name, cbid);
+
+    return 0;
+}
+
 
 int zend_add_method(int cidx, int fidx, int cbid, char *cname, char *mname, char *atys, int rety)
 {
