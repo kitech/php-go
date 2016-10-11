@@ -118,3 +118,26 @@ int phpgo_function_delete(phpgo_function_entry *pfe) {
 zend_function_entry* phpgo_function_get(phpgo_function_entry* pfe) {
     return pfe->fe;
 }
+
+//
+#define MAX_ARG_NUM 10
+struct _phpgo_callback_info {
+    char arg_types[MAX_ARG_NUM];
+    int ret_type;
+    int varidict;
+};
+
+phpgo_callback_info* phpgo_callback_info_new(char *arg_types, int ret_type) {
+    phpgo_callback_info* cbi = (phpgo_callback_info*)calloc(1, sizeof(phpgo_callback_info));
+    strncpy(cbi->arg_types, arg_types, sizeof(cbi->arg_types));
+    cbi->ret_type = ret_type;
+    return cbi;
+}
+
+char* phpgo_callback_info_get_arg_types(phpgo_callback_info* cbi) {
+    return cbi->arg_types;
+}
+
+int phpgo_callback_info_get_ret_type(phpgo_callback_info* cbi) {
+    return cbi->ret_type;
+}
