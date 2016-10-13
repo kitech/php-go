@@ -28,6 +28,6 @@ all:
 	# $(PHPEXE) -d extension=./hello.so examples/hello.php
 
 clean:
-	rm -f ../../pkg/linux_amd64/zend.a
-	rm -f ../../pkg/linux_amd64/phpgo.a
+	rm -f $(GOPATH)/pkg/linux_amd64/zend.a
+	rm -f $(GOPATH)/pkg/linux_amd64/phpgo.a
 	rm -f hello.so

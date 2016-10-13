@@ -6,6 +6,7 @@
 #include <zend_modules.h>
 
 #ifdef ZEND_ENGINE_3
+// #define Z_BVAL_P(zv) Z_LVAL_P(zv)
 /*
 #define Z_BVAL_PP(zv) Z_LVAL_P(*(zv))
 #define Z_LVAL_PP(zv) Z_LVAL_P(*(zv))

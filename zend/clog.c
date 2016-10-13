@@ -18,7 +18,7 @@ void dlog_set_level(int id, enum clog_level level)
     }
     #warning "defined log level"
 #else
-#warning "not defined log level"
+// #warning "not defined log level"
     clog_set_level(id, CLOG_DEBUG);
 #endif
 }

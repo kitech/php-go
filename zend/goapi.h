@@ -70,5 +70,54 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 
 /* End of boilerplate cgo prologue.  */
 
+///////////
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+//// put goapi.go's export function here
+
+extern void goapi_array_new(GoInt p0, void** p1);
+
+extern void goapi_array_push(void* p0, void* p1, void** p2);
+
+extern void goapi_map_new(void** p0);
+
+extern void goapi_map_add(void* p0, void* p1, void* p2);
+
+extern void goapi_map_get(void* p0, void* p1, void** p2);
+
+extern void goapi_map_del(void* p0, void* p1);
+
+extern GoUint8 goapi_map_has(void* p0, void* p1);
+
+extern void goapi_chan_new(GoInt p0, GoInt p1, void** p2);
+
+extern void goapi_chan_read(void* p0, void** p1);
+
+extern void goapi_chan_write(void* p0, void* p1);
+
+extern void goapi_chan_close(void* p0);
+
+extern void goapi_type(GoInt p0, void** p1);
+
+extern void goapi_typeof(void* p0, void** p1);
+
+extern GoInt goapi_typeid(void* p0);
+
+extern void goapi_new(GoInt p0, void** p1);
+
+extern void goapi_new_value(GoInt p0, GoUintptr p1, void** p2);
+
+extern void goapi_set_value(void* p0, GoUintptr p1, void** p2);
+
+extern void goapi_set_php_array(void* p0, void** p1);
+
+extern GoUintptr goapi_get_value(void* p0);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
 

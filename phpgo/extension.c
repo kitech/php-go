@@ -199,8 +199,16 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         goapi_new_value(GT_Int64, (uint64_t)arg, &rv);
     } else if (ch == 'b') {
         convert_to_boolean_ex(conv_zarg);
+#ifdef ZEND_ENGINE_3
+        if (Z_TYPE_P(conv_zarg) == IS_TRUE) {
+            goapi_new_value(GT_Bool, (uint64_t)1, &rv);
+        } else {
+            goapi_new_value(GT_Bool, (uint64_t)0, &rv);
+        }
+#else
         zend_bool arg = (zend_bool)Z_BVAL_P(macro_zarg);
         goapi_new_value(GT_Bool, (uint64_t)arg, &rv);
+#endif
     } else if (ch == 'd') {
         convert_to_double_ex(conv_zarg);
         double arg = (double)Z_DVAL_P(macro_zarg);
@@ -215,12 +223,15 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
             char *arg = Z_STRVAL_P(macro_zarg);
             goapi_new_value(GT_String, (uint64_t)arg, &rv);
 #ifdef ZEND_ENGINE_3
-        } else if (Z_TYPE_P(macro_zarg) == _IS_BOOL) {
+        } else if (Z_TYPE_P(macro_zarg) == IS_TRUE) {
+            goapi_new_value(GT_Bool, (uint64_t)1, &rv);
+        } else if (Z_TYPE_P(macro_zarg) == IS_FALSE) {
+            goapi_new_value(GT_Bool, (uint64_t)0, &rv);
 #else
         } else if (Z_TYPE_P(macro_zarg) == IS_BOOL) {
-#endif
             zend_bool arg = (zend_bool)Z_BVAL_P(macro_zarg);
             goapi_new_value(GT_Bool, (uint64_t)arg, &rv);
+#endif
         } else if (Z_TYPE_P(macro_zarg) == IS_DOUBLE) {
             double* parg = calloc(1, sizeof(double));
             *parg = (double)Z_DVAL_P(macro_zarg);
@@ -409,7 +420,7 @@ static void phpgo_method_conv_args(int cbid, phpgo_callback_info* cbi, int suppl
 static void phpgo_function_reutrn_php_array(void *p0, zval *return_value) {
     array_init(return_value);
 
-    goapi_set_php_array(p0, &return_value);
+    goapi_set_php_array(p0, (void**)&return_value);
 }
 
 // go类型的返回值转换为PHP类型的变量值
@@ -436,6 +447,12 @@ static int phpgo_function_conv_ret(int cbid, phpgo_callback_info* cbi, void *p0,
         free((double*)rv);
         break;
 #ifdef ZEND_ENGINE_3
+    case IS_TRUE:
+        RETVAL_TRUE;
+        break;
+    case IS_FALSE:
+        RETVAL_FALSE;
+        break;
     case _IS_BOOL:
 #else
     case IS_BOOL:
