@@ -653,6 +653,11 @@ int zend_add_function(int cidx, int fidx, int cbid, char *name, char *atys, int 
     printf("add func %s at %d:%d=%d, atys=%s, rety=%d\n",
            name, cidx, fidx, cbid, atys, rety);
 
+    // TODO 检测是否是phpgo注册的？
+    if (gozend_function_registered(name) == 1) {
+        dlog_debug("function already exists: %s", name);
+    }
+
     int cnlen = strlen(GLOBAL_VCLASS_NAME);
     char *cname = GLOBAL_VCLASS_NAME;
     char *mname = name;

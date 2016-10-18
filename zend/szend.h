@@ -14,5 +14,7 @@ extern void *gozend_ecalloc(size_t nmemb, size_t size);
 extern void *gozend_erealloc(void *ptr, size_t size);
 extern char gozend_eval_string(char *code);
 extern void call_user_function_callback(char *arg);
+extern int gozend_function_exists(char *fname);
+extern int gozend_function_registered(char *fname);
 
 #endif

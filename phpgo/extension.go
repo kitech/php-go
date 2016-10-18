@@ -3,6 +3,7 @@ package phpgo
 /*
 #include "extension.h"
 #include "../zend/compat.h"
+#include "../zend/szend.h"
 
 #include <php.h>
 #include <zend_exceptions.h>
@@ -19,8 +20,9 @@ import "errors"
 import "fmt"
 import "log"
 import "os"
-import "github.com/kitech/php-go/zend"
 import "strings"
+
+import "github.com/kitech/php-go/zend"
 
 // 一个程序只能创建一个扩展
 // 所以使用全局变量也没有问题。
@@ -336,11 +338,22 @@ func AddConstant(name string, val interface{}, namespace interface{}) {
 // 内置函数注册，内置类注册。
 func addBuiltins() {
 	// nice fix exit crash bug.
-	AddFunc("GoExit", func(code int) { os.Exit(code) })
-	AddFunc("GoGo", func(fn interface{}) { log.Println(fn) })
-	AddFunc("GoPanic", func() { panic("got") })
-	AddFunc("GoRecover", func() { recover() })
-	AddFunc("GoPrintln", func(p0 int, v interface{}) { log.Println(v, 123333) })
+	var iret C.int = 0
+	if iret = C.gozend_function_registered(C.CString("GoExit")); iret == C.int(0) {
+		AddFunc("GoExit", func(code int) { os.Exit(code) })
+	}
+	if iret = C.gozend_function_registered(C.CString("GoGo")); iret == C.int(0) {
+		AddFunc("GoGo", func(fn interface{}) { log.Println(fn) })
+	}
+	if iret = C.gozend_function_registered(C.CString("GoPanic")); iret == C.int(0) {
+		AddFunc("GoPanic", func() { panic("got") })
+	}
+	if iret = C.gozend_function_registered(C.CString("GoRecover")); iret == C.int(0) {
+		AddFunc("GoRecover", func() { recover() })
+	}
+	if iret = C.gozend_function_registered(C.CString("GoPrintln")); iret == C.int(0) {
+		AddFunc("GoPrintln", func(p0 int, v interface{}) { log.Println(v, 123333) })
+	}
 }
 
 // 注册php module 初始化函数
