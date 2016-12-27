@@ -144,8 +144,10 @@ char *type2name(int type)
         return "pointer";
     case IS_CALLABLE:
         return "callable";
+#ifdef IS_LEXICAL_VAR
     case IS_LEXICAL_VAR:
         return "var";
+#endif
     default:
         return "unknown";
     }

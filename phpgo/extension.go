@@ -287,9 +287,9 @@ func validFunc(fn interface{}) bool {
 /*
 * @param namespace string optional
  */
-func AddConstant(name string, val interface{}, namespace interface{}) {
+func AddConstant(name string, val interface{}, namespace interface{}) error {
 	if len(name) == 0 {
-		return
+		return nil
 	}
 
 	if namespace != nil {
@@ -301,22 +301,27 @@ func AddConstant(name string, val interface{}, namespace interface{}) {
 	defer C.free(unsafe.Pointer(modname))
 
 	if val != nil {
-		switch v := val.(type) {
-		case string:
+		valty := reflect.TypeOf(val)
+
+		switch valty.Kind() {
+		case reflect.String:
+			v := val.(string)
 			modval := C.CString(v)
 			defer C.free(unsafe.Pointer(modval))
 
 			C.zend_register_stringl_constant_compat(modname, C.size_t(len(name)), modval, C.size_t(len(v)),
 				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
-		case int, int32, uint32, int64, uint64, int8, uint8:
-			iv := reflect.ValueOf(v).Convert(reflect.TypeOf(int64(1))).Interface()
+		case reflect.Int, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64,
+			reflect.Int8, reflect.Uint8:
+			iv := reflect.ValueOf(val).Convert(reflect.TypeOf(int64(1))).Interface()
 			C.zend_register_long_constant_compat(modname, C.size_t(len(name)), C.zend_long(iv.(int64)),
 				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
-		case float32, float64:
-			fv := reflect.ValueOf(v).Convert(reflect.TypeOf(float64(1.0))).Interface()
+		case reflect.Float32, reflect.Float64:
+			fv := reflect.ValueOf(val).Convert(reflect.TypeOf(float64(1.0))).Interface()
 			C.zend_register_double_constant_compat(modname, C.size_t(len(name)), C.double(fv.(float64)),
 				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
-		case bool:
+		case reflect.Bool:
+			v := val.(bool)
 			var bv int8 = 1
 			if v == false {
 				bv = 0
@@ -324,14 +329,16 @@ func AddConstant(name string, val interface{}, namespace interface{}) {
 			C.zend_register_bool_constant_compat(modname, C.size_t(len(name)), C.zend_bool(bv),
 				C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
 		default:
-			valty := reflect.TypeOf(val)
-			log.Panicln("Warning, unsported constant value type:", valty.Kind().String())
+			err := fmt.Errorf("Warning, unsported constant value type: %v", valty.Kind().String())
+			log.Println(err)
+			return err
 		}
 	} else {
 		C.zend_register_null_constant_compat(modname, C.size_t(len(name)),
 			C.CONST_CS|C.CONST_PERSISTENT, C.int(module_number))
 	}
 
+	return nil
 }
 
 // TODO 如果比较多的话，可以摘出来，放在builtin.go中
