@@ -1,10 +1,12 @@
 package main
 
 import "log"
+
 import "reflect"
 import "math/rand"
 import "time"
 import "github.com/kitech/php-go/phpgo"
+import "github.com/kitech/php-go/zend"
 
 type PGDemo struct {
 }
@@ -101,30 +103,43 @@ func init() {
 	log.Println("run us init...")
 	rand.Seed(time.Now().UnixNano())
 
-	f2 := func() int {
-		log.Println("ext user func called222 closure")
-		return 567
-	}
-
 	phpgo.InitExtension("pg0", "")
 	phpgo.RegisterInitFunctions(module_startup, module_shutdown, request_startup, request_shutdown)
 
-	phpgo.AddFunc("foo_hello", phpgo_hello)
-	// phpgo.AddFunc("foo_hello2", phpgo_hello2)
-	phpgo.AddFunc("foo_hello2", f2)
-	phpgo.AddFunc("foo_hello3", phpgo_hello3)
-	phpgo.AddFunc("foo_hello7", phpgo_hello7)
-	phpgo.AddFunc("foo_hello8", phpgo_hello8)
+	// test global vars
+	{
+		modifier := func(ie *zend.IniEntry, newValue string, stage int) int {
+			log.Println(ie.Name(), newValue, stage)
+			return 0
+		}
+		displayer := func(ie *zend.IniEntry, itype int) {
+			log.Println(ie.Name(), itype)
+		}
+		phpgo.AddIniVar("pg0.hehe", 567, false, modifier, displayer)
+		phpgo.AddIniVar("pg0.hehe2", 832, true, modifier, displayer)
+	}
 
-	//
-	dm := NewPGDemo()
-	log.Println("method fn:", dm.Hello1, reflect.TypeOf(dm.Hello1), NewPGDemo)
+	if true {
+		f2 := func() int {
+			log.Println("ext user func called222 closure")
+			return 567
+		}
 
-	phpgo.AddClass("PGDemo", NewPGDemo)
-	// zend.AddMethod("PGDemo", "hello1", PGDemo.hello1)
+		phpgo.AddFunc("foo_hello", phpgo_hello)
+		// phpgo.AddFunc("foo_hello2", phpgo_hello2)
+		phpgo.AddFunc("foo_hello2", f2)
+		phpgo.AddFunc("foo_hello3", phpgo_hello3)
+		phpgo.AddFunc("foo_hello7", phpgo_hello7)
+		phpgo.AddFunc("foo_hello8", phpgo_hello8)
+
+		//
+		dm := NewPGDemo()
+		log.Println("method fn:", dm.Hello1, reflect.TypeOf(dm.Hello1), NewPGDemo)
+
+		phpgo.AddClass("PGDemo", NewPGDemo)
+		// zend.AddMethod("PGDemo", "hello1", PGDemo.hello1)
+	}
 }
 
-func main() {
-	panic("wtf")
-	log.Println("run here for what?")
-}
+// should not run this function
+func main() { panic("wtf") }

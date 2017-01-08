@@ -100,6 +100,9 @@ type Extension struct {
 	request_startup_func  func(int, int) int
 	request_shutdown_func func(int, int) int
 
+	inis *zend.IniEntries // ini entries
+
+	//
 	me *C.zend_module_entry
 	fe *C.zend_function_entry
 }
@@ -120,8 +123,12 @@ func NewExtension() *Extension {
 	objs_p := make(map[unsafe.Pointer]interface{}, 0)
 
 	classes["global"] = 0 // 可以看作内置函数的类
-	return &Extension{syms: syms, classes: classes, cbs: cbs,
+
+	this := &Extension{syms: syms, classes: classes, cbs: cbs,
 		objs: objs, objs_p: objs_p}
+	this.inis = zend.NewIniEntries()
+
+	return this
 }
 
 // depcreated
@@ -341,6 +348,16 @@ func AddConstant(name string, val interface{}, namespace interface{}) error {
 	return nil
 }
 
+func AddIniVar(name string, value interface{}, modifiable bool,
+	onModifier func(*zend.IniEntry, string, int) int,
+	displayer func(*zend.IniEntry, int)) {
+	ie := zend.NewIniEntryDef()
+	ie.Fill(name, value, modifiable, nil, nil)
+	ie.SetModifier(onModifier)
+	ie.SetDisplayer(displayer)
+	gext.inis.Add(ie)
+}
+
 // TODO 如果比较多的话，可以摘出来，放在builtin.go中
 // 内置函数注册，内置类注册。
 func addBuiltins() {
@@ -363,6 +380,7 @@ func addBuiltins() {
 	}
 }
 
+// TODO init func with go's //export
 // 注册php module 初始化函数
 func RegisterInitFunctions(module_startup_func func(int, int) int,
 	module_shutdown_func func(int, int) int,
@@ -378,8 +396,29 @@ func RegisterInitFunctions(module_startup_func func(int, int) int,
 		return unsafe.Pointer(&f)
 	}
 
-	C.phpgo_register_init_functions(tocip(gext.module_startup_func), tocip(gext.module_shutdown_func),
+	C.phpgo_register_init_functions(tocip(go_module_startup_func), tocip(gext.module_shutdown_func),
 		tocip(gext.request_startup_func), tocip(gext.request_shutdown_func))
+}
+
+// the module_startup_func proxy
+func go_module_startup_func(a0 int, a1 int) int {
+	// for test begin
+	modifier := func(ie *zend.IniEntry, newValue string, stage int) int {
+		// log.Println(ie.Name(), newValue, stage)
+		return 0
+	}
+	displayer := func(ie *zend.IniEntry, itype int) {
+		// log.Println(ie.Name(), itype)
+	}
+	AddIniVar("phpgo.hehe_int", 123, true, modifier, displayer)
+	AddIniVar("phpgo.hehe_bool", true, true, modifier, displayer)
+	AddIniVar("phpgo.hehe_long", 123, true, modifier, displayer)
+	AddIniVar("phpgo.hehe_string", "strval123", true, modifier, displayer)
+	// for test end
+
+	gext.inis.Register(a1)
+
+	return gext.module_startup_func(a0, a1)
 }
 
 //

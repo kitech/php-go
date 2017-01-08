@@ -74,7 +74,8 @@ manual:
 - [ ] multiple extension support
 - [ ] class member access support
 - [x] unlimited function/method/class count support
-- [ ] global var support
+- [x] global ini var support
+- [ ] fill phpinfo
 
 
 Contributing

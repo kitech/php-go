@@ -27,6 +27,19 @@ all:
 	go build -v -buildmode=c-shared -o hello.so examples/hello.go
 	# $(PHPEXE) -d extension=./hello.so examples/hello.php
 
+zdlib:
+	go install -v -x ./zend
+
+pglib:
+	go install -v -x ./phpgo
+
+test:
+	$(PHPEXE) -d extension=./hello.so examples/hello.php
+
+# quickly build check syntax errors
+quickbc:
+	go build -v -x -buildmode=c-archive -o php-grpc.c.a examples/hello.go
+
 clean:
 	rm -f $(GOPATH)/pkg/linux_amd64/zend.a
 	rm -f $(GOPATH)/pkg/linux_amd64/phpgo.a
