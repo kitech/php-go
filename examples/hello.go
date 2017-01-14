@@ -27,6 +27,7 @@ func (this *PGDemo) Hello2() string {
 	return t.String()
 }
 
+// indexed array
 func (this *PGDemo) Hello3() [3][]int {
 	a := []int{1, 2, 3}
 	b := []int{4, 5, 6}
@@ -38,6 +39,7 @@ func (this *PGDemo) Hello3() [3][]int {
 	return d
 }
 
+// assoc array
 func (this *PGDemo) Hello4() map[string]map[string]map[int]string {
 	temp := make(map[int]string)
 	temp[0] = "zhangsan"

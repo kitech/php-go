@@ -187,17 +187,19 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
 
         convert_to_string_ex(conv_zarg);
         char *arg = Z_STRVAL_P(macro_zarg);
-        printf("arg%d(%c), %s(%d)\n", idx, ch, arg, Z_STRLEN_P(macro_zarg));
+        dlog_debug("arg%d(%c), %s(%d)", idx, ch, arg, Z_STRLEN_P(macro_zarg));
         goapi_new_value(GT_String, (uint64_t)arg, &rv);
     } else if (ch == 'l') {
         if (prmty != IS_LONG) {
             zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
                        ch, type2name(prmty));
+            dlog_error("Parameters type not match, need (%c), given: %s",
+                       ch, type2name(prmty));
         }
 
         convert_to_long_ex(conv_zarg);
         long arg = (long)Z_LVAL_P(macro_zarg);
-        printf("arg%d(%c), %d\n", idx, ch, arg);
+        dlog_debug("arg%d(%c), %d", idx, ch, arg);
         goapi_new_value(GT_Int64, (uint64_t)arg, &rv);
     } else if (ch == 'b') {
         convert_to_boolean_ex(conv_zarg);
@@ -248,7 +250,7 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
             void *parg = (void*)macro_zarg;
             goapi_new_value(GT_UnsafePointer, (uint64_t)parg, &rv);
         } else {
-            printf("arg%d(%c), %s(%d) unsported to Any\n", idx, ch,
+            dlog_debug("arg%d(%c), %s(%d) unsported to Any", idx, ch,
                    type2name(Z_TYPE_P(macro_zarg)), Z_TYPE_P(macro_zarg));
         }
 
@@ -289,7 +291,7 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
                 break;
             default:
                 convert_to_string_ex(conv_edata);
-                printf("array idx(%d)=T(%d=%s, val=%s)\n", pos,
+                dlog_debug("array idx(%d)=T(%d=%s, val=%s)", pos,
                        Z_TYPE_P(edata), type2name(Z_TYPE_P(edata)), Z_STRVAL_P(edata));
                 goapi_array_push(rv, Z_STRVAL_P(edata), &rv);
                 break;
@@ -329,7 +331,7 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
             default:
                 convert_to_string_ex(conv_ekey);
                 convert_to_string_ex(conv_edata);
-                printf("array idx(%d)=K(%s)=T(%d=%s, val=%s)\n", pos, Z_STRVAL_P(ekey),
+                dlog_debug("array idx(%d)=K(%s)=T(%d=%s, val=%s)", pos, Z_STRVAL_P(ekey),
                        Z_TYPE_P(edata), type2name(Z_TYPE_P(edata)), Z_STRVAL_P(edata));
                 goapi_map_add(rv, Z_STRVAL_P(ekey), Z_STRVAL_P(edata));
                 break;
@@ -337,8 +339,10 @@ static void* phpgo_function_conv_arg(int cbid, int idx, char ch, int zty, zval *
         }
 
     } else {
-        printf("arg%d(%c), %s(%d)\n", idx, ch, type2name(prmty), prmty);
+        dlog_debug("arg%d(%c), %s(%d)", idx, ch, type2name(prmty), prmty);
         zend_error(E_WARNING, "Parameters type not match, need (%c), given: %s",
+                   ch, type2name(prmty));
+        dlog_error("Parameters type not match, need (%c), given: %s",
                    ch, type2name(prmty));
         return NULL;
     }
@@ -357,13 +361,13 @@ static void phpgo_function_conv_args(int cbid, phpgo_callback_info* cbi, int sup
     zval **args[MAX_ARG_NUM] = {0};
 #endif
     if (zend_get_parameters_array_ex(num_args, args) == FAILURE) {
-        printf("param count error: %d\n", num_args);
+        dlog_error("param count error: %d", num_args);
         WRONG_PARAM_COUNT;
         return;
     }
 
     // void *argv[MAX_ARG_NUM] = {0};
-    dlog_debug("parse params: %d\n", num_args);
+    dlog_debug("parse params: %d", num_args);
     char* arg_types = phpgo_callback_info_get_arg_types(cbi);
     // function has not this arg, don't -1
     for (int idx = 0; idx < num_args; idx ++) {
@@ -372,7 +376,7 @@ static void phpgo_function_conv_args(int cbid, phpgo_callback_info* cbi, int sup
 #else
         zval *zarg = *(args[idx]);
 #endif
-        printf("arg%d, type=%d\n", idx, Z_TYPE_P(zarg));
+        dlog_debug("arg%d, type=%d", idx, Z_TYPE_P(zarg));
         int prmty = Z_TYPE_P(zarg);
         char ch = arg_types[idx];
 
@@ -394,13 +398,13 @@ static void phpgo_method_conv_args(int cbid, phpgo_callback_info* cbi, int suppl
 #endif
 
     if (zend_get_parameters_array_ex(num_args-1, args) == FAILURE) {
-        printf("param count error: %d\n", num_args);
+        dlog_error("param count error: %d", num_args);
         WRONG_PARAM_COUNT;
         return;
     }
 
     // void *argv[MAX_ARG_NUM] = {0};
-    dlog_debug("parse params: %d\n", num_args);
+    dlog_debug("parse params: %d", num_args);
     char* arg_types = phpgo_callback_info_get_arg_types(cbi);
     for (int idx = 0; idx < num_args-1; idx ++) {
 #ifdef ZEND_ENGINE_3
@@ -409,7 +413,7 @@ static void phpgo_method_conv_args(int cbid, phpgo_callback_info* cbi, int suppl
         zval *zarg = *(args[idx]);
 #endif
 
-        printf("arg%d, type=%d\n", idx, Z_TYPE_P(zarg));
+        dlog_debug("arg%d, type=%d", idx, Z_TYPE_P(zarg));
         int prmty = Z_TYPE_P(zarg);
         char ch = arg_types[idx+1];
 
@@ -431,7 +435,7 @@ static int phpgo_function_conv_ret(int cbid, phpgo_callback_info* cbi, void *p0,
     RETVAL_LONG(5);
 
     int ret_type = phpgo_callback_info_get_ret_type(cbi);
-    printf("convert ret: %p, type: %d(%s)\n", p0, ret_type, type2name(ret_type));
+    dlog_debug("convert ret: %p, type: %d(%s)", p0, ret_type, type2name(ret_type));
 
     uint64_t rv = (uint64_t)goapi_get_value(p0);
     // 返回值解析转换
@@ -481,6 +485,7 @@ static int phpgo_function_conv_ret(int cbid, phpgo_callback_info* cbi, void *p0,
     default:
         // wtf?
         zend_error(E_WARNING, "unrecognized return value: %d, %s.", ret_type, type2name(ret_type));
+        dlog_error("unrecognized return value: %d, %s.", ret_type, type2name(ret_type));
         break;
     }
 
@@ -500,12 +505,12 @@ void phpgo_function_handler7(int cbid, phpgo_callback_info* cbi, zend_execute_da
     }
     zend_string *func_name = execute_data->func->common.function_name;
     char *class_name = ZEND_FN_SCOPE_NAME(execute_data->func);
-    printf("function handler called.%d, this=%p, atys=%s, op=%p, func=%s, class=%s\n",
+    dlog_debug("function handler called.%d, this=%p, atys=%s, op=%p, func=%s, class=%s",
            cbid, this_ptr, arg_types, op, ZSTR_VAL(func_name), class_name);
 
     zend_function_entry *fe = phpgo_function_map_get(class_name, ZSTR_VAL(func_name));
     int cbid_dyn = phpgo_callback_map_get(class_name, ZSTR_VAL(func_name));
-    dlog_debug("mapget: %p, %d=?%d\n", fe, cbid_dyn, cbid);
+    dlog_debug("mapget: %p, %d=?%d", fe, cbid_dyn, cbid);
     cbid = cbid_dyn; // for transition
 
     void *argv[MAX_ARG_NUM] = {0};
@@ -519,7 +524,7 @@ void phpgo_function_handler7(int cbid, phpgo_callback_info* cbi, zend_execute_da
     on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
                                  argv[2], argv[3], argv[4], argv[5],
                                  argv[6], argv[7], argv[8], argv[9], &rv, (void*) op);
-    dlog_debug("inout ret:%p\n", rv);
+    dlog_debug("inout ret:%p", rv);
     phpgo_function_conv_ret(cbid, cbi, rv, return_value);
 }
 
@@ -536,7 +541,7 @@ void phpgo_function_handler(zend_execute_data *execute_data, zval *return_value)
              (class_name == NULL || strlen(class_name) == 0) ? GLOBAL_VCLASS_NAME : class_name, func_name);
     phpgo_callback_info* cbi = (phpgo_callback_info*)phpgo_object_map_get(g_cbinfo_map, fname);
     if (cbi == NULL) {
-        dlog_debug("callback info can not be NULL: '%s=%p::%p'", fname, class_name, func_name);
+        dlog_error("callback info can not be NULL: '%s=%p::%p'", fname, class_name, func_name);
         exit(-1);
     }
 
@@ -562,7 +567,7 @@ void phpgo_function_handler5(int cbid, phpgo_callback_info* cbi, int ht, zval *r
         zend_class_entry *ce = zend_get_class_entry(this_ptr);
         class_name = ce->name;
     }
-    printf("function handler called.%d, this=%p, atys=%s, op=%p, func=%s, class=%s\n",
+    dlog_debug("function handler called.%d, this=%p, atys=%s, op=%p, func=%s, class=%s",
            cbid, this_ptr, arg_types, op, func_name, class_name);
 
     void *argv[MAX_ARG_NUM] = {0};
@@ -576,7 +581,7 @@ void phpgo_function_handler5(int cbid, phpgo_callback_info* cbi, int ht, zval *r
     on_phpgo_function_callback_p(cbid, this_ptr, argv[0], argv[1],
                                  argv[2], argv[3], argv[4], argv[5],
                                  argv[6], argv[7], argv[8], argv[9], &rv, (void*) op);
-    dlog_debug("inout ret:%p\n", rv);
+    dlog_debug("inout ret:%p", rv);
     phpgo_function_conv_ret(cbid, cbi, rv, return_value);
 }
 
@@ -604,7 +609,7 @@ void phpgo_function_handler(int ht, zval *return_value, zval **return_value_ptr,
              (class_name == NULL || strlen(class_name) == 0) ? GLOBAL_VCLASS_NAME : class_name, func_name);
     phpgo_callback_info* cbi = (phpgo_callback_info*)phpgo_object_map_get(g_cbinfo_map, fname);
     if (cbi == NULL) {
-        dlog_debug("callback info can not be NULL");
+        dlog_error("callback info can not be NULL");
         exit(-1);
     }
 
@@ -617,7 +622,7 @@ void phpgo_function_handler(int ht, zval *return_value, zval **return_value_ptr,
 int zend_add_class(int cidx, char *cname)
 {
     if (phpgo_object_map_get(g_class_map, cname) == NULL) {
-        dlog_debug("Class %s not added.", cname);
+        dlog_error("Class %s not added.", cname);
         return -1;
     }
 
@@ -634,7 +639,7 @@ int zend_add_class(int cidx, char *cname)
 int zend_add_class_not_register(int cidx, char *cname)
 {
     if (phpgo_object_map_get(g_class_map, cname) != NULL) {
-        dlog_debug("Class %s already added.", cname);
+        dlog_error("Class %s already added.", cname);
         return -1;
     }
 
@@ -652,12 +657,12 @@ int zend_add_class_not_register(int cidx, char *cname)
 
 int zend_add_function(int cidx, int fidx, int cbid, char *name, char *atys, int rety)
 {
-    printf("add func %s at %d:%d=%d, atys=%s, rety=%d\n",
+    dlog_debug("add func %s at %d:%d=%d, atys=%s, rety=%d",
            name, cidx, fidx, cbid, atys, rety);
 
     // TODO 检测是否是phpgo注册的？
     if (gozend_function_registered(name) == 1) {
-        dlog_debug("function already exists: %s", name);
+        dlog_error("function already exists: %s", name);
     }
 
     int cnlen = strlen(GLOBAL_VCLASS_NAME);
@@ -693,7 +698,7 @@ int zend_add_function(int cidx, int fidx, int cbid, char *name, char *atys, int 
 
 int zend_add_method(int cidx, int fidx, int cbid, char *cname, char *mname, char *atys, int rety)
 {
-    printf("add mth %s::%s at %d:%d=%d, atys=%s, rety=%d\n",
+    dlog_debug("add mth %s::%s at %d:%d=%d, atys=%s, rety=%d",
            cname, mname, cidx, fidx, cbid, atys, rety);
 
     phpgo_class_entry* pce = (phpgo_class_entry*)phpgo_object_map_get(g_class_map, cname);

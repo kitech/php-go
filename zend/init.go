@@ -56,3 +56,19 @@ func initCLog() {
 	C.dlog_set_level(C.STDOUT_FILENO, 0)
 	C.dlog_set_level(C.STDERR_FILENO, 0)
 }
+
+const (
+	LOG_NONE  = int(-1)
+	LOG_ERROR = int(C.CLOG_ERROR)
+	LOG_WARN  = int(C.CLOG_WARN)
+	LOG_INFO  = int(C.CLOG_INFO)
+	LOG_DEBUG = int(C.CLOG_DEBUG)
+)
+
+func LogInitFD(fd int) {
+	C.clog_init_fd(C.int(fd), C.int(fd))
+}
+
+func LogSetLevel(fd int, level int) {
+	C.dlog_set_level(C.int(fd), C.int(level))
+}

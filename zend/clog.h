@@ -173,7 +173,7 @@ void clog_error(const char *sfile, int sline, int id, const char *fmt, ...);
 #define dlog_info(...) clog_info(CLOG(STDOUT_FILENO), __VA_ARGS__)
 #define dlog_warn(...) clog_warn(CLOG(STDOUT_FILENO), __VA_ARGS__)
 #define dlog_error(...) clog_error(CLOG(STDOUT_FILENO), __VA_ARGS__)
-void dlog_set_level(int id, enum clog_level level);
+void dlog_set_level(int id, int level);
 
 /**
  * Set the minimum level of messages that should be written to the log.

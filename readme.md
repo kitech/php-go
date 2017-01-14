@@ -1,5 +1,8 @@
 
 
+[![GoDoc](https://godoc.org/github.com/kitech/php-go/phpgo?status.svg)](https://godoc.org/github.com/kitech/php-go/phpgo)
+[![GoDoc](https://godoc.org/github.com/kitech/php-go/zend?status.svg)](https://godoc.org/github.com/kitech/php-go/zend)
+
 ### php-go
 
 Write PHP extension using go/golang. Zend API wrapper for go/golang. 

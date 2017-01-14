@@ -12,9 +12,9 @@ function test_classes() {
     $r = $d->Hello1();
     var_dump($r);
     $r2 = $d->Hello3();
-    print_r($r2);
+    print_r("index array result: " . var_export($r2, true));
     $r3 = $d->Hello4();
-    print_r($r3);
+    print_r("assoc array result: " .var_export($r3, true));
 
     // test for executing scope destruct and execute finished scope destruct
     if (rand() % 2 == 1) {
@@ -55,7 +55,7 @@ function test_inis() {
     }
 }
 
-test_funcs();
+// test_funcs();
 test_classes();
 test_inis();
 
