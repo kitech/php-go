@@ -55,7 +55,7 @@ function test_inis() {
     }
 }
 
-// test_funcs();
+test_funcs();
 test_classes();
 test_inis();
 

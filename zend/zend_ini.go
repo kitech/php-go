@@ -4,7 +4,13 @@ package zend
 #include <zend_API.h>
 #include <zend_ini.h>
 
-extern int gozend_ini_modifier(zend_ini_entry *entry, zend_string *new_value, void *mh_arg1, void *mh_arg2, void *mh_arg3, int stage);
+#ifdef ZEND_ENGINE_2
+typedef zend_ini_entry zend_ini_entry_def;
+typedef char zend_string;  // 为了让gozend_ini_modifier7在php5下能够编译过
+#endif
+
+extern int gozend_ini_modifier7(zend_ini_entry *entry, zend_string *new_value, void *mh_arg1, void *mh_arg2, void *mh_arg3, int stage);
+extern int gozend_ini_modifier5(zend_ini_entry *entry, char *new_value, uint new_value_length, void *mh_arg1, void *mh_arg2, void *mh_arg3, int stage);
 extern void gozend_ini_displayer(zend_ini_entry *ini_entry, int type);
 */
 import "C"
@@ -32,6 +38,7 @@ func NewIniEntries() *IniEntries {
 
 func (this *IniEntries) Register(module_number int) int {
 	r := C.zend_register_ini_entries(&this.zies[0], C.int(module_number))
+	log.Println(r)
 	return int(r)
 }
 func (this *IniEntryDef) Unregister(module_number int) {
@@ -91,7 +98,12 @@ func (this *IniEntryDef) Fill3(name string, defaultValue interface{}, modifiable
 	onModify func(), arg1, arg2, arg3 interface{}, displayer func()) {
 	this.zie.name = C.CString(name)
 	this.zie.modifiable = go2cBool(modifiable)
-	this.zie.on_modify = go2cfn(C.gozend_ini_modifier)
+	// this.zie.orig_modifiable = go2cBool(modifiable)
+	if ZEND_ENGINE == ZEND_ENGINE_3 {
+		this.zie.on_modify = go2cfn(C.gozend_ini_modifier7)
+	} else {
+		this.zie.on_modify = go2cfn(C.gozend_ini_modifier5)
+	}
 	this.zie.displayer = go2cfn(C.gozend_ini_displayer)
 
 	value := fmt.Sprintf("%v", defaultValue)
@@ -107,8 +119,16 @@ func (this *IniEntryDef) Fill3(name string, defaultValue interface{}, modifiable
 		this.zie.mh_arg3 = nil
 	}
 
-	this.zie.name_length = C.uint(len(name))
-	this.zie.value_length = C.uint(len(value))
+	if ZEND_ENGINE == ZEND_ENGINE_3 {
+		this.zie.name_length = C.uint(len(name))
+		this.zie.value_length = C.uint(len(value))
+	} else {
+		// why need +1 for php5?
+		// if not, zend_alter_ini_entry_ex:280行会出现zend_hash_find无结果失败
+		this.zie.name_length = C.uint(len(name) + 1)
+		this.zie.value_length = C.uint(len(value) + 1)
+	}
+	log.Println(name, len(name))
 
 	iniNameEntries[name] = this
 }
@@ -138,10 +158,25 @@ func (this *IniEntryDef) SetDisplayer(displayer func(ie *IniEntry, itype int)) {
 
 var iniNameEntries = make(map[string]*IniEntryDef, 0)
 
-//export gozend_ini_modifier
-func gozend_ini_modifier(ie *C.zend_ini_entry, new_value *C.zend_string, mh_arg1 unsafe.Pointer, mh_arg2 unsafe.Pointer, mh_arg3 unsafe.Pointer, stage C.int) C.int {
-	// log.Println(ie, new_value, stage)
-	// log.Println(fromZString(new_value), fromZString(ie.name))
+// the new_value is really not *C.char, it's *C.zend_string
+//export gozend_ini_modifier7
+func gozend_ini_modifier7(ie *C.zend_ini_entry, new_value *C.zend_string, mh_arg1 unsafe.Pointer, mh_arg2 unsafe.Pointer, mh_arg3 unsafe.Pointer, stage C.int) C.int {
+	// log.Println(ie, "//", new_value, stage, ie.modifiable)
+	// log.Println(ie.orig_modifiable, ie.modified, fromZString(ie.orig_value))
+	// log.Println(fromZString(new_value), fromZString(ie.name), fromZString(ie.value))
+	if iedef, ok := iniNameEntries[fromZString(ie.name)]; ok {
+		iedef.onModify(newZendIniEntryFrom(ie), fromZString(new_value), int(stage))
+	} else {
+		log.Println("wtf", fromZString(ie.name))
+	}
+	return 0
+}
+
+//export gozend_ini_modifier5
+func gozend_ini_modifier5(ie *C.zend_ini_entry, new_value *C.char, new_value_length C.uint, mh_arg1 unsafe.Pointer, mh_arg2 unsafe.Pointer, mh_arg3 unsafe.Pointer, stage C.int) C.int {
+	// log.Println(ie, "//", new_value, new_value_length, stage, ie.modifiable)
+	// log.Println(ie.orig_modifiable, ie.modified, fromZString(ie.orig_value))
+	// log.Println(fromZString(new_value), fromZString(ie.name), fromZString(ie.value))
 	if iedef, ok := iniNameEntries[fromZString(ie.name)]; ok {
 		iedef.onModify(newZendIniEntryFrom(ie), fromZString(new_value), int(stage))
 	} else {

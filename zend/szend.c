@@ -186,6 +186,7 @@ void call_user_function_callback(char *data)
 
 // find function name in HashTable
 static int _gozend_function_exists_ht(char *fname, HashTable* ht) {
+#ifdef ZEND_ENGINE_3
 	zend_string *name;
 	zend_function *func;
 	zend_string *lcname;
@@ -214,6 +215,34 @@ static int _gozend_function_exists_ht(char *fname, HashTable* ht) {
     } else {
         return 0;
     }
+#else
+	char *name;
+	int name_len;
+	zend_function *func;
+    int retval = 0;
+
+    name = fname;
+    name_len = strlen(fname);
+	/* Ignore leading "\" */
+	if (name[0] == '\\') {
+		name = &name[1];
+		name_len--;
+	}
+
+	retval = (zend_hash_find(ht, name, name_len+1, (void **)&func) == SUCCESS);
+
+	/*
+	 * A bit of a hack, but not a bad one: we see if the handler of the function
+	 * is actually one that displays "function is disabled" message.
+	 */
+	if (retval && func->type == ZEND_INTERNAL_FUNCTION &&
+		func->internal_function.handler == zif_display_disabled_function) {
+		retval = 0;
+	}
+
+    return retval;
+#endif
+    return 0;
 }
 
 // seems only can be used when vm executing
@@ -222,5 +251,9 @@ int gozend_function_exists(char *fname) {
 }
 
 int gozend_function_registered(char *fname) {
+    zif_function_exists();
+    zif_function_existsccc();
+
     return _gozend_function_exists_ht(fname, compiler_globals.function_table);
 }
+

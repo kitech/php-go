@@ -16,5 +16,6 @@ extern char gozend_eval_string(char *code);
 extern void call_user_function_callback(char *arg);
 extern int gozend_function_exists(char *fname);
 extern int gozend_function_registered(char *fname);
+extern int gozend_zend_version_no();
 
 #endif

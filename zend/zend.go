@@ -24,6 +24,13 @@ import "C"
 import "unsafe"
 import "fmt"
 
+const (
+	ZEND_ENGINE_3 = 3
+	ZEND_ENGINE_2 = 2
+)
+
+var ZEND_ENGINE = int(C.gozend_zend_version_no())
+
 ////export call_user_function_string
 func Call_user_function_string(func_name string, arg string) (string, error) {
 	cfname := C.CString(func_name)
