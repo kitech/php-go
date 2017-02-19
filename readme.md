@@ -26,7 +26,7 @@ Simple, easy, fun to write PHP extensions.
 * PHP 5.5+/7.x
 * go version 1.4+
 * php5-dev installed (`apt-get install php5-dev`)
-
+* for MacOS, go 1.8+
 
 ### Build & Install
 

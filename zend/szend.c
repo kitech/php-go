@@ -251,8 +251,8 @@ int gozend_function_exists(char *fname) {
 }
 
 int gozend_function_registered(char *fname) {
-    zif_function_exists();
-    zif_function_existsccc();
+    // zif_function_exists(); // this call method not compatible on MacOS
+    // zif_function_existsccc();
 
     return _gozend_function_exists_ht(fname, compiler_globals.function_table);
 }
