@@ -51,23 +51,31 @@ manual:
 
 ### Examples
 
-    import "github.com/kitech/php-go/phpgo"
-    
-    function foo_in_go() {
-    }
-    
-    type Bar struct{}
-    func NewBar() *Bar{
-        return &Bar{}
-    }
-    
-    func init() {
-	    phpgo.InitExtension("mymod", "1.0")
-        
-        phpgo.AddFunc("foo_in_php", foo_in_go)
-        phpgo.AddClass("bar_in_php", NewBar)
-    }
-    
+```go
+// package main is required
+package main
+
+import "github.com/kitech/php-go/phpgo"
+
+function foo_in_go() {
+}
+
+type Bar struct{}
+func NewBar() *Bar{
+    return &Bar{}
+}
+
+func init() {
+    phpgo.InitExtension("mymod", "1.0")
+
+    phpgo.AddFunc("foo_in_php", foo_in_go)
+    phpgo.AddClass("bar_in_php", NewBar)
+}
+
+// should not run this function
+// required for go build though.
+func main() { panic("wtf") }
+```    
 
 ### TODO
 
