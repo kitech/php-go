@@ -17,9 +17,11 @@ export PATH := $(PHPDIR)/bin:$(PATH)
 export CFLAGS := $(shell $(PHPCFG) --includes)
 export LDFLAGS := -L$(shell $(PHPCFG) --prefix)/lib/
 
-export GOPATH := $(PWD):$(GOPATH)
 export CGO_CFLAGS := $(CFLAGS) $(CGO_CFLAGS)
 export CGO_LDFLAGS := $(LDFLAGS) $(CGO_LDFLAGS)
+
+GOOS := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
 
 all:
 	go install ./zend
@@ -41,6 +43,6 @@ quickbc:
 	go build -v -x -buildmode=c-archive -o php-grpc.c.a examples/hello.go
 
 clean:
-	rm -f $(GOPATH)/pkg/linux_amd64/zend.a
-	rm -f $(GOPATH)/pkg/linux_amd64/phpgo.a
+	rm -f $(GOPATH)/pkg/$(GOOS)_$(GOARCH)/zend.a
+	rm -f $(GOPATH)/pkg/$(GOOS)_$(GOARCH)/phpgo.a
 	rm -f hello.so
