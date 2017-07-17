@@ -35,7 +35,8 @@ go get:
 ```
 go get github.com/kitech/php-go
 cd $GOPATH/src/github.com/kitech/php-go
-make
+# adjust PHPCFG path if needed
+PHPCFG=`which php-config` make
 ```
 
 
