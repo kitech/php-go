@@ -58,7 +58,7 @@ package main
 
 import "github.com/kitech/php-go/phpgo"
 
-function foo_in_go() {
+func foo_in_go() {
 }
 
 type Bar struct{}
