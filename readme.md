@@ -17,7 +17,7 @@ Simple, easy, fun to write PHP extensions.
 * constant support
 * primitive data type as parameters and return values, (u)int*/float*/string/bool
 * complex data type as parameters, map/slice/array
-* all can be done by programitic
+* all can be done by programmatic
 
 
 ### Environment
@@ -58,7 +58,7 @@ package main
 
 import "github.com/kitech/php-go/phpgo"
 
-function foo_in_go() {
+func foo_in_go() {
 }
 
 type Bar struct{}
