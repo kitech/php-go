@@ -120,13 +120,13 @@ func (this *IniEntryDef) Fill3(name string, defaultValue interface{}, modifiable
 	}
 
 	if ZEND_ENGINE == ZEND_ENGINE_3 {
-		this.zie.name_length = C.uint(len(name))
-		this.zie.value_length = C.uint(len(value))
+		this.zie.name_length = C.uint32_t(len(name))
+		this.zie.value_length = C.uint32_t(len(value))
 	} else {
 		// why need +1 for php5?
 		// if not, zend_alter_ini_entry_ex:280行会出现zend_hash_find无结果失败
-		this.zie.name_length = C.uint(len(name) + 1)
-		this.zie.value_length = C.uint(len(value) + 1)
+		this.zie.name_length = C.uint32_t(len(name) + 1)
+		this.zie.value_length = C.uint32_t(len(value) + 1)
 	}
 	log.Println(name, len(name))
 

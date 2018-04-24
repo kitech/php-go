@@ -1,5 +1,3 @@
-
-
 [![GoDoc](https://godoc.org/github.com/kitech/php-go/phpgo?status.svg)](https://godoc.org/github.com/kitech/php-go/phpgo)
 [![GoDoc](https://godoc.org/github.com/kitech/php-go/zend?status.svg)](https://godoc.org/github.com/kitech/php-go/zend)
 
@@ -9,7 +7,6 @@ Write PHP extension using go/golang. Zend API wrapper for go/golang.
 
 Simple, easy, fun to write PHP extensions.
 
-
 ### Features
 
 * function support
@@ -18,7 +15,6 @@ Simple, easy, fun to write PHP extensions.
 * primitive data type as parameters and return values, (u)int*/float*/string/bool
 * complex data type as parameters, map/slice/array
 * all can be done by programmatic
-
 
 ### Environment
 
@@ -38,7 +34,6 @@ cd $GOPATH/src/github.com/kitech/php-go
 # adjust PHPCFG path if needed
 PHPCFG=`which php-config` make
 ```
-
 
 manual:
 
@@ -76,7 +71,7 @@ func init() {
 // should not run this function
 // required for go build though.
 func main() { panic("wtf") }
-```    
+```
 
 ### TODO
 
@@ -97,4 +92,3 @@ Contributing
 3. Commit your changes (``git commit -am 'Add some feature'``)
 4. Push to the branch (``git push origin my-new-feature``)
 5. Create new Pull Request
-

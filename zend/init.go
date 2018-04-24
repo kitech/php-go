@@ -7,46 +7,32 @@ package zend
 import "C"
 
 // import "unsafe"
-import "runtime"
-
-import "time"
-import "math/rand"
-
-// import "os"
-import "fmt"
-import "log"
+import (
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"runtime"
+	"time"
+)
 
 const (
 	SINGLE_THREAD = 1
 )
 
-//
 func init() {
-	initSingleThread()
-	initCLog()
 	initRawLog()
-}
-
-func initSingleThread() {
-	if C.gozend_iszts() == 0 {
-		omp := runtime.GOMAXPROCS(0)
-		if omp > SINGLE_THREAD {
-			runtime.GOMAXPROCS(SINGLE_THREAD)
-			fmt.Printf("Adjust GOMAXPROCS %d => %d\n", omp, SINGLE_THREAD)
-		}
-	}
-
-	rand.Seed(time.Now().UnixNano())
+	initCLog()
+	initSingleThread()
 }
 
 func initRawLog() {
-	prefix := "phpgo"
-	// log.SetFlags(log.Llongfile | log.LstdFlags)
-	log.SetFlags(log.Lshortfile | log.LstdFlags)
-	oldPrefix := log.Prefix()
-	log.SetPrefix(fmt.Sprintf("[%s ] ", prefix))
-	if len(oldPrefix) > 0 {
-		log.Printf("Switch log prefix: %s => [%s ]\n", oldPrefix, prefix)
+	// To enable use true:
+	if false {
+		log.SetFlags(log.Lshortfile | log.LstdFlags)
+		log.SetPrefix("[phpgo] ")
+	} else {
+		log.SetFlags(0)
+		log.SetOutput(ioutil.Discard)
 	}
 }
 
@@ -55,6 +41,18 @@ func initCLog() {
 	C.clog_init_fd(C.STDERR_FILENO, C.STDERR_FILENO)
 	C.dlog_set_level(C.STDOUT_FILENO, 0)
 	C.dlog_set_level(C.STDERR_FILENO, 0)
+}
+
+func initSingleThread() {
+	if C.gozend_iszts() == 0 {
+		omp := runtime.GOMAXPROCS(0)
+		if omp > SINGLE_THREAD {
+			runtime.GOMAXPROCS(SINGLE_THREAD)
+			log.Printf("Adjust GOMAXPROCS %d => %d\n", omp, SINGLE_THREAD)
+		}
+	}
+
+	rand.Seed(time.Now().UnixNano())
 }
 
 const (
