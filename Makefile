@@ -1,13 +1,17 @@
-
 # Usage:
-# PHPCFG=/usr/bin/php-config55 make
-# PHPCFG=php-config55 make
-# PHPCFG=/usr/bin/php-config make
-# PHPCFG=php-config make
-# make
+#	Default config:
+#		make
+#	Use a specific php-config:
+#		PHPCFG=/usr/bin/php-config72 make
+#	Disable zend log (<error):
+#		CGO_CFLAGS="-DLOGLEVEL=error" make
 
 ifeq ($(PHPCFG),)
 	PHPCFG=/usr/bin/php-config
+endif
+
+ifeq ($(APP),)
+	APP=examples
 endif
 
 PHPEXE := $(shell $(PHPCFG) --php-binary)
@@ -26,8 +30,8 @@ GOARCH := $(shell go env GOARCH)
 all:
 	go install ./zend
 	go install ./phpgo
-	go build -v -buildmode=c-shared -o hello.so examples/hello.go
-	# $(PHPEXE) -d extension=./hello.so examples/hello.php
+	go build -buildmode=c-shared -o $(APP).so $(APP)/main.go
+	# $(PHPEXE) -d extension=./$(APP).so $(APP)/main.php
 
 zdlib:
 	go install -v -x ./zend
@@ -43,6 +47,6 @@ quickbc:
 	go build -v -x -buildmode=c-archive -o php-grpc.c.a examples/hello.go
 
 clean:
-	rm -f $(GOPATH)/pkg/$(GOOS)_$(GOARCH)/zend.a
-	rm -f $(GOPATH)/pkg/$(GOOS)_$(GOARCH)/phpgo.a
+	rm -f $(GOPATH)/pkg/$(GOOS)_$(GOARCH)/github.com/kitech/php-go/zend.a
+	rm -f $(GOPATH)/pkg/$(GOOS)_$(GOARCH)/github.com/kitech/php-go/phpgo.a
 	rm -f hello.so

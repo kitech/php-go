@@ -52,7 +52,7 @@ void phpgo_function_map_add(const char *class_name, const char *func_name, zend_
     int id = UTHASH_CNT(hh, g_funcs_map);
     phpgo_function_map *m = (phpgo_function_map*)malloc(sizeof(phpgo_function_map));
     char *key = (char*)calloc(1, class_name == NULL ? 0 : strlen(class_name) + strlen(func_name) + 2 + 1);
-    sprintf(key, "%s::%s\0", class_name == NULL ? "" : class_name, func_name);
+    sprintf(key, "%s::%s%c", class_name == NULL ? "" : class_name, func_name, '\0');
     m->name = key;
     m->fe = fe;
     m->id = id;
@@ -63,7 +63,7 @@ zend_function_entry* phpgo_function_map_get(const char *class_name, const char *
 {
     phpgo_function_map *m = NULL;
     char key[(class_name == NULL ? 0 : strlen(class_name)) + strlen(func_name) + 2 + 1];
-    sprintf(key, "%s::%s\0", (class_name == NULL ? "" : class_name), func_name);
+    sprintf(key, "%s::%s%c", (class_name == NULL ? "" : class_name), func_name, '\0');
     UTHASH_FIND_STR(g_funcs_map, key, m);
     if (m == NULL) {
         return NULL;
@@ -97,7 +97,7 @@ void phpgo_callback_map_add(const char *class_name, const char *func_name, int c
     int id = UTHASH_CNT(hh, g_callbacks_map);
     phpgo_callback_map *m = (phpgo_callback_map*)malloc(sizeof(phpgo_callback_map));
     char *key = (char*)calloc(1, class_name == NULL ? 0 : strlen(class_name) + strlen(func_name) + 2 + 1);
-    sprintf(key, "%s::%s\0", class_name == NULL ? "" : class_name, func_name);
+    sprintf(key, "%s::%s%c", class_name == NULL ? "" : class_name, func_name, '\0');
     m->name = key;
     m->cbid = cbid;
     UTHASH_ADD_KEYPTR(hh, g_callbacks_map, key, strlen(key), m);
@@ -107,7 +107,7 @@ int phpgo_callback_map_get(const char *class_name, const char *func_name)
 {
     phpgo_callback_map *m = NULL;
     char key[(class_name == NULL ? 0 : strlen(class_name)) + strlen(func_name) + 2 + 1];
-    sprintf(key, "%s::%s\0", (class_name == NULL ? "" : class_name), func_name);
+    sprintf(key, "%s::%s%c", (class_name == NULL ? "" : class_name), func_name, '\0');
     UTHASH_FIND_STR(g_callbacks_map, key, m);
     if (m == NULL) {
         return -1;
