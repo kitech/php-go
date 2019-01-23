@@ -26,7 +26,7 @@
 #include "../zend/clog.h"
 #include "objectmap.h"
 #include "class.h"
-
+#include "../zend/customize.h"
 
 // TODO PHP7支持
 static phpgo_object_map* g_module_map = NULL;
@@ -437,7 +437,17 @@ static int phpgo_function_conv_ret(int cbid, phpgo_callback_info* cbi, void *p0,
     int ret_type = phpgo_callback_info_get_ret_type(cbi);
     dlog_debug("convert ret: %p, type: %d(%s)", p0, ret_type, type2name(ret_type));
 
-    uint64_t rv = (uint64_t)goapi_get_value(p0);
+    int rv_type = 0;
+    uint64_t rv = (uint64_t)goapi_get_value(p0, (void*)&rv_type);
+    if (ret_type == IS_ZVAL) {
+        if (rv_type == 0) {
+            RETVAL_NULL();
+            return 0;
+        }
+
+        ret_type = rv_type;
+    }
+
     // 返回值解析转换
     switch (ret_type) {
     case IS_STRING:

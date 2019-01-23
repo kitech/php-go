@@ -440,13 +440,15 @@ func push_php_array(ru reflect.Value, rv *unsafe.Pointer, key interface{}, at in
 }
 
 //export goapi_get_value
-func goapi_get_value(gv unsafe.Pointer) uintptr {
+func goapi_get_value(gv unsafe.Pointer, gvt unsafe.Pointer) uintptr {
 	giv := FROMCIP(gv)
 	gvty := reflect.TypeOf(giv)
 	if gvty == nil {
 		return 0
 	}
 
+    rvt := 0
+    
 	var rv uintptr
 
 	switch gvty.Kind() {
@@ -457,36 +459,50 @@ func goapi_get_value(gv unsafe.Pointer) uintptr {
 		} else {
 			rv = 0
 		}
+
+        rvt = PHPTY_IS_BOOL
 	case reflect.Int:
 		rv = (uintptr)(giv.(int))
+        rvt = PHPTY_IS_LONG
 	case reflect.Int8:
 		rv = (uintptr)(giv.(int8))
+        rvt = PHPTY_IS_LONG
 	case reflect.Int16:
 		rv = (uintptr)(giv.(int16))
+        rvt = PHPTY_IS_LONG
 	case reflect.Int32:
 		rv = (uintptr)(giv.(int32))
+        rvt = PHPTY_IS_LONG
 	case reflect.Int64:
 		rv = (uintptr)(giv.(int64))
+        rvt = PHPTY_IS_LONG
 	case reflect.Uint:
 		rv = (uintptr)(giv.(uint))
+        rvt = PHPTY_IS_LONG
 	case reflect.Uint8:
 		rv = (uintptr)(giv.(uint8))
+        rvt = PHPTY_IS_LONG
 	case reflect.Uint16:
 		rv = (uintptr)(giv.(uint16))
+        rvt = PHPTY_IS_LONG
 	case reflect.Uint32:
 		rv = (uintptr)(giv.(uint32))
+        rvt = PHPTY_IS_LONG
 	case reflect.Uint64:
 		rv = (uintptr)(giv.(uint64))
+        rvt = PHPTY_IS_LONG
 	case reflect.Uintptr:
 		rv = giv.(uintptr)
 	case reflect.Float32:
-		var drv *C.double = (*C.double)(C.malloc(8))
+        var drv *C.double = (*C.double)(C.malloc(8))
         *drv = (C.double)(giv.(float32))
         rv = uintptr(unsafe.Pointer(drv))
+        rvt = PHPTY_IS_DOUBLE
 	case reflect.Float64:
-		var drv *C.double = (*C.double)(C.malloc(8))
+        var drv *C.double = (*C.double)(C.malloc(8))
         *drv = (C.double)(giv.(float64))
         rv = uintptr(unsafe.Pointer(drv))
+        rvt = PHPTY_IS_DOUBLE
 	case reflect.Complex64:
 	case reflect.Complex128:
 	case reflect.Chan:
@@ -495,9 +511,13 @@ func goapi_get_value(gv unsafe.Pointer) uintptr {
 	case reflect.Ptr:
 	case reflect.String:
 		rv = uintptr(unsafe.Pointer(C.CString(giv.(string))))
+        rvt = PHPTY_IS_STRING
 	case reflect.Map:
+        rvt = PHPTY_IS_ARRAY
 	case reflect.Slice:
+        rvt = PHPTY_IS_ARRAY
 	case reflect.Array:
+        rvt = PHPTY_IS_ARRAY
 	case reflect.Struct:
 	case reflect.UnsafePointer:
 		rv = (uintptr)(giv.(unsafe.Pointer))
@@ -517,5 +537,7 @@ func goapi_get_value(gv unsafe.Pointer) uintptr {
 			log.Panicln("can not convert:", giv, gvty.Kind(), gvty, rvty)
 		}
 	}*/
+    
+    *(*C.int)(gvt) = C.int(rvt)
 	return rv
 }

@@ -113,7 +113,7 @@ extern void goapi_set_value(void* p0, GoUintptr p1, void** p2);
 
 extern void goapi_set_php_array(void* p0, void** p1);
 
-extern GoUintptr goapi_get_value(void* p0);
+extern GoUintptr goapi_get_value(void* p0, void* p1);
 
 #ifdef __cplusplus
 }
