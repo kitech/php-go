@@ -480,7 +480,13 @@ func goapi_get_value(gv unsafe.Pointer) uintptr {
 	case reflect.Uintptr:
 		rv = giv.(uintptr)
 	case reflect.Float32:
+		var drv *C.double = (*C.double)(C.malloc(8))
+        *drv = (C.double)(giv.(float32))
+        rv = uintptr(unsafe.Pointer(drv))
 	case reflect.Float64:
+		var drv *C.double = (*C.double)(C.malloc(8))
+        *drv = (C.double)(giv.(float64))
+        rv = uintptr(unsafe.Pointer(drv))
 	case reflect.Complex64:
 	case reflect.Complex128:
 	case reflect.Chan:
