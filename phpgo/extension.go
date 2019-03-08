@@ -210,13 +210,13 @@ func AddClass(name string, ctor interface{}) error {
 func addDtor(cidx int, cname string, ctor interface{}) {
 	mname := "__destruct"
 	fidx := 1
-	addMethod(cidx, fidx, cname, mname, ctor, false, true)
+	addMethod(ctor, cidx, fidx, cname, mname, ctor, false, true)
 }
 
 func addCtor(cidx int, cname string, ctor interface{}) {
 	mname := "__construct"
 	fidx := 0
-	addMethod(cidx, fidx, cname, mname, ctor, true, false)
+	addMethod(ctor, cidx, fidx, cname, mname, ctor, true, false)
 }
 
 func addMethods(cidx int, cname string, ctor interface{}) {
@@ -225,11 +225,11 @@ func addMethods(cidx int, cname string, ctor interface{}) {
 
 	for idx := 0; idx < cls.NumMethod(); idx++ {
 		mth := cls.Method(idx)
-		addMethod(cidx, idx+2, cname, mth.Name, mth.Func.Interface(), false, false)
+		addMethod(ctor, cidx, idx+2, cname, mth.Name, mth.Func.Interface(), false, false)
 	}
 }
 
-func addMethod(cidx int, fidx int, cname string, mname string, fn interface{}, isctor, isdtor bool) {
+func addMethod(ctor interface{}, cidx int, fidx int, cname string, mname string, fn interface{}, isctor, isdtor bool) {
 	// cidx := gext.classes[cname]
 	// cbid := gencbid(cidx, fidx)
 	cbid := nxtcbid()
@@ -243,7 +243,20 @@ func addMethod(cidx int, fidx int, cname string, mname string, fn interface{}, i
 	if argtys != nil {
 		cargtys = C.CString(*argtys)
 	}
-	rety := zend.RetType2Php(fn)
+
+	isSelf := false
+    methodRetType := reflect.TypeOf(fn)
+    if methodRetType.NumOut() > 0 {
+        classType := reflect.TypeOf(ctor).Out(0)
+        isSelf = classType == methodRetType.Out(0)
+    }
+
+	var rety int
+    if !isSelf {
+    	rety = zend.RetType2Php(fn)
+    } else {
+        rety = zend.PHPTY_IS_SELF
+    }
 
 	ccname := C.CString(cname)
 	cmname := C.CString(mname)

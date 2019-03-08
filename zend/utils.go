@@ -63,5 +63,9 @@ func FROMCIP(p unsafe.Pointer) interface{} {
 	}
 
 	rp := (*interface{})(p)
+	if rp == nil || *rp == nil {
+        return nil
+    }
+    
 	return reflect.ValueOf(*rp).Interface()
 }

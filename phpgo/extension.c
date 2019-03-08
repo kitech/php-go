@@ -26,7 +26,7 @@
 #include "../zend/clog.h"
 #include "objectmap.h"
 #include "class.h"
-
+#include "../zend/customize.h"
 
 // TODO PHP7支持
 static phpgo_object_map* g_module_map = NULL;
@@ -430,14 +430,25 @@ static void phpgo_function_reutrn_php_array(void *p0, zval *return_value) {
 }
 
 // go类型的返回值转换为PHP类型的变量值
-static int phpgo_function_conv_ret(int cbid, phpgo_callback_info* cbi, void *p0, zval *return_value)
+static int phpgo_function_conv_ret(int cbid, phpgo_callback_info* cbi, void *p0, zval *return_value, zend_execute_data *execute_data)
 {
     RETVAL_LONG(5);
 
     int ret_type = phpgo_callback_info_get_ret_type(cbi);
     dlog_debug("convert ret: %p, type: %d(%s)", p0, ret_type, type2name(ret_type));
 
-    uint64_t rv = (uint64_t)goapi_get_value(p0);
+    int rv_type = 0;
+    uint64_t rv = (uint64_t)goapi_get_value(p0, (void*)&rv_type);
+    if (ret_type == IS_ZVAL) {
+        if (rv_type == 0) {
+            RETVAL_NULL();
+            return 0;
+        }
+
+        ret_type = rv_type;
+    }
+
+    zval* self = getThis();
     // 返回值解析转换
     switch (ret_type) {
     case IS_STRING:
@@ -482,6 +493,9 @@ static int phpgo_function_conv_ret(int cbid, phpgo_callback_info* cbi, void *p0,
     case IS_ARRAY:
         phpgo_function_reutrn_php_array(p0, return_value);
         break;
+    case IS_SELF:
+        RETVAL_ZVAL(self, 1, 0);
+        break;
     default:
         // wtf?
         zend_error(E_WARNING, "unrecognized return value: %d, %s.", ret_type, type2name(ret_type));
@@ -525,7 +539,7 @@ void phpgo_function_handler7(int cbid, phpgo_callback_info* cbi, zend_execute_da
                                  argv[2], argv[3], argv[4], argv[5],
                                  argv[6], argv[7], argv[8], argv[9], &rv, (void*) op);
     dlog_debug("inout ret:%p", rv);
-    phpgo_function_conv_ret(cbid, cbi, rv, return_value);
+    phpgo_function_conv_ret(cbid, cbi, rv, return_value, execute_data);
 }
 
 void phpgo_function_handler(zend_execute_data *execute_data, zval *return_value)
@@ -582,7 +596,7 @@ void phpgo_function_handler5(int cbid, phpgo_callback_info* cbi, int ht, zval *r
                                  argv[2], argv[3], argv[4], argv[5],
                                  argv[6], argv[7], argv[8], argv[9], &rv, (void*) op);
     dlog_debug("inout ret:%p", rv);
-    phpgo_function_conv_ret(cbid, cbi, rv, return_value);
+    phpgo_function_conv_ret(cbid, cbi, rv, return_value, execute_data);
 }
 
 void phpgo_function_handler(int ht, zval *return_value, zval **return_value_ptr,
