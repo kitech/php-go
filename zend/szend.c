@@ -247,13 +247,13 @@ static int _gozend_function_exists_ht(char *fname, HashTable* ht) {
 
 // seems only can be used when vm executing
 int gozend_function_exists(char *fname) {
-    return _gozend_function_exists_ht(fname, executor_globals.function_table);
+    return _gozend_function_exists_ht(fname, EG(function_table));
 }
 
 int gozend_function_registered(char *fname) {
     // zif_function_exists(); // this call method not compatible on MacOS
     // zif_function_existsccc();
 
-    return _gozend_function_exists_ht(fname, compiler_globals.function_table);
+    return _gozend_function_exists_ht(fname, CG(function_table));
 }
 
