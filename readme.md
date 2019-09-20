@@ -73,6 +73,11 @@ func init() {
 func main() { panic("wtf") }
 ```
 
+### Limitations
+
+* Deadlock in pcntl_fork'ed subprocess when call extension functions. #47
+
+
 ### TODO
 
 - [ ] install with go get 
